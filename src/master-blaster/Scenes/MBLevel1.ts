@@ -12,7 +12,7 @@ import { GameEventType } from "../../Wolfie2D/Events/GameEventType";
  */
 export default class Level1 extends MBLevel {
 
-    public static readonly PLAYER_SPAWN = new Vec2(32, 32);
+    public static readonly PLAYER_SPAWN = new Vec2(256, 272);
     public static readonly PLAYER_SPRITE_KEY = "PLAYER_SPRITE_KEY";
     public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/Hero.json";
 
@@ -98,8 +98,10 @@ export default class Level1 extends MBLevel {
      * 
      */
     protected initializeViewport(): void {
-        super.initializeViewport();
-        this.viewport.setBounds(16, 16, 496, 512);
+        this.viewport.setZoomLevel(2);
+        this.viewport.setBounds(0, 0, 512, 512);
+        this.viewport.setCenter(256, 256);
+        this.viewport.setFocus(new Vec2(256, 256));
     }
 
 }
