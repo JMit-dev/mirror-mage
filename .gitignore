@@ -1,0 +1,9 @@
+node_modules
+
+dist/*
+
+!dist/demo_assets
+
+!dist/game_assets
+
+**/.DS_store
