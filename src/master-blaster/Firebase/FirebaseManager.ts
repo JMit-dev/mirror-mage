@@ -1,6 +1,6 @@
 /** Minimal typings for the Firebase compat global loaded via CDN */
 declare const firebase: {
-    database(): FirebaseDatabase;
+    database(url?: string): FirebaseDatabase;
 };
 
 interface FirebaseDatabase {
@@ -37,6 +37,9 @@ export interface RoomState {
  * Each player entry: { slot: 1|2, joinedAt: number }
  */
 export default class FirebaseManager {
+    private static readonly DB_URL =
+        "https://mirror-mage-default-rtdb.firebaseio.com";
+
     private static _state: RoomState = {
         roomCode: "",
         playerCount: 0,
@@ -111,7 +114,7 @@ export default class FirebaseManager {
             if (typeof firebase === "undefined" || typeof firebase.database !== "function") {
                 throw new Error("Firebase SDK not loaded");
             }
-            const playerRef = firebase.database().ref(
+            const playerRef = firebase.database(FirebaseManager.DB_URL).ref(
                 "rooms/" + code + "/players/" + this._playerId
             );
             playerRef
@@ -149,7 +152,7 @@ export default class FirebaseManager {
                         return;
                     }
 
-                    const playerRef = firebase.database().ref(
+                    const playerRef = firebase.database(FirebaseManager.DB_URL).ref(
                         "rooms/" + code + "/players/" + this._playerId
                     );
                     playerRef.set({ slot: 2, joinedAt: Date.now() });
