@@ -47,6 +47,10 @@ export type MBLayer = typeof MBLayers[keyof typeof MBLayers]
 export default abstract class MBLevel extends Scene {
     /** Target frame size in world units to preserve original player on-screen size */
     protected static readonly PLAYER_TARGET_FRAME_SIZE = 32;
+    public static readonly MIRROR_SPRITE_KEY = "PLAYER_MIRROR";
+    public static readonly MIRROR_SPRITE_PATH = "game_assets/spritesheets/mirror temp.png";
+    protected static readonly MIRROR_SCALE = 2;
+    protected static readonly MIRROR_PADDING = 10;
 
     /** Overrride the factory manager */
     public add: MBFactoryManager;
@@ -59,6 +63,9 @@ export default abstract class MBLevel extends Scene {
     protected player: AnimatedSprite;
     /** The player's spawn position */
     protected playerSpawn: Vec2;
+    /** The mirror that orbits around the player */
+    protected mirror: Sprite;
+    protected mirrorDirection: Vec2 = Vec2.RIGHT;
 
     private healthLabel: Label;
 	private healthBar: Label;
@@ -129,6 +136,7 @@ export default abstract class MBLevel extends Scene {
 
         // Initialize the player 
         this.initializePlayer(this.playerSpriteKey);
+        this.initializeMirror();
 
         // Initialize the viewport - this must come after the player has been initialized
         this.initializeViewport();
@@ -158,6 +166,7 @@ export default abstract class MBLevel extends Scene {
     /* Update method for the scene */
 
     public updateScene(deltaT: number) {
+        this.updateMirrorPosition();
         this.playerWeaponSystem.update(deltaT);
 
         for (const projectile of this.playerWeaponSystem.getProjectiles()) {
@@ -485,6 +494,28 @@ export default abstract class MBLevel extends Scene {
         this.viewport.follow(this.player);
         this.viewport.setZoomLevel(2);
         this.viewport.setBounds(0, 0, 512, 512);
+    }
+
+    protected initializeMirror(): void {
+        this.mirror = this.add.sprite(MBLevel.MIRROR_SPRITE_KEY, MBLayers.PRIMARY);
+        this.mirror.scale.set(MBLevel.MIRROR_SCALE, MBLevel.MIRROR_SCALE);
+        this.updateMirrorPosition();
+    }
+
+    protected updateMirrorPosition(): void {
+        if (this.player === undefined || this.mirror === undefined) {
+            return;
+        }
+
+        const mousePosition = Input.getGlobalMousePosition();
+        const mouseDirection = this.player.position.dirTo(mousePosition);
+        if (!mouseDirection.isZero()) {
+            this.mirrorDirection = mouseDirection;
+        }
+
+        const orbitRadius = this.player.boundary.halfSize.x + this.mirror.boundary.halfSize.x + MBLevel.MIRROR_PADDING;
+        this.mirror.position.copy(this.player.position.clone().add(this.mirrorDirection.scaled(orbitRadius)));
+        this.mirror.rotation = Math.atan2(-this.mirrorDirection.y, this.mirrorDirection.x);
     }
     /**
      * Initializes the level end area

@@ -72,6 +72,7 @@ export default class Level2 extends MBLevel {
         // Load in the player's sprite
         this.load.spritesheet(this.playerSpriteKey, Level2.PLAYER_SPRITE_PATH);
         this.load.image(PlayerWeapon.PROJECTILE_SPRITE_KEY, PlayerWeapon.PROJECTILE_SPRITE_PATH);
+        this.load.image(MBLevel.MIRROR_SPRITE_KEY, MBLevel.MIRROR_SPRITE_PATH);
         // Level2-specific music
         this.load.audio(this.levelMusicKey, Level2.LEVEL_MUSIC_PATH);
         this.load.audio(this.jumpAudioKey, Level2.JUMP_AUDIO_PATH);
@@ -83,6 +84,7 @@ export default class Level2 extends MBLevel {
         this.emitter.fireEvent(GameEventType.STOP_SOUND, {key: this.levelMusicKey});
         this.load.keepSpritesheet(this.playerSpriteKey);
         this.load.keepImage(PlayerWeapon.PROJECTILE_SPRITE_KEY);
+        this.load.keepImage(MBLevel.MIRROR_SPRITE_KEY);
         this.load.keepAudio(this.jumpAudioKey);
         this.load.keepAudio(this.tileDestroyedAudioKey);
         this.load.keepAudio(this.deathAudioKey);
