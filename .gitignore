@@ -7,3 +7,12 @@ dist/*
 !dist/game_assets
 
 **/.DS_store
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.env
+.env.local
+serviceAccountKey.json

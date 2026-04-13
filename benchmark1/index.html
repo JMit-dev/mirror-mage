@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mirror Mage Game Design Document</title>
+</head>
+<body>
+
+<h2>Mirror Mage Game Design Document</h2>
+<h4>by The Jordan Mitacek & Carlos Deleon</h4>
+
+<hr>
+
+<h3>INTRODUCTION</h3>
+
+<p>
+  Mirror Mage is a 2 to 4 player local multiplayer arena game. Each player controls a mage carrying an arc-shaped
+  mirror that orbits their body. Spell items drop onto the stage and must be picked up to be used. One hit kills.
+  Rounds are fast - typically under a minute. The skill is in rotating your mirror to deflect incoming spells
+  back at opponents while racing to grab the next item drop. This document describes the initial game,
+  which contains 2 playable levels and serves as a foundation for the full game.
+</p>
+
+<hr>
+
+<h3>TECHNOLOGY</h3>
+
+<p>
+  Mirror Mage is built using the <b>Wolfie2D game engine</b>. Custom gameplay systems - spell item spawning,
+  mirror arc rotation, reflection angle math, and stock tracking - are implemented on top of the engine.
+  All code is maintained in a shared GitHub repository. The game is deployed to Firebase at:
+  <b>https://mirror-mage.firebaseapp.com</b>
+</p>
+
+<hr>
+
+<h3>BACK STORY</h3>
+
+<p>
+  The Arcane Consortium settles all internal disputes the same way: mages enter a sealed arena and cast spells
+  at each other until someone goes down. Each mage carries an Arc Mirror - a curved shard of enchanted glass
+  that can redirect any spell that strikes its inner face. The last mage standing wins.
+</p>
+
+<hr>
+
+<h3>OBJECTIVE</h3>
+
+<p>
+  Each player starts with 3 stocks. Any spell that contacts a player's body kills them instantly and removes one
+  stock. The mirror cannot be destroyed in this game - it either reflects a spell or it doesn't, depending on
+  which face the spell hits. The last player with stocks remaining wins the match. There is no damage percentage
+  and no knockback - a hit is simply a kill.
+</p>
+
+<hr>
+
+<h3>GAMEPLAY</h3>
+
+<p>
+  Players move left and right and jump around the arena. Spell items fall from above at random intervals and
+  land on platforms. A glowing indicator appears at the drop location one second before an item lands so all
+  players can see where to move. Walking over a spell item picks it up automatically. Each player holds at most
+  one spell at a time. Picking up a new spell while already holding one drops the current spell on the ground,
+  where any player can grab it.
+</p>
+
+<p>
+  Casting fires the spell and immediately empties the player's hand. Players must then compete for the next
+  drop. This creates short bursts of tension: race to the item, pick it up, aim, fire, then scramble again.
+  With 3 or 4 players, multiple spells are in the air simultaneously and the mirror becomes critical for
+  surviving shots from directions you are not currently threatening.
+</p>
+
+<p>
+  The Arc Mirror orbits the player at a fixed radius and covers roughly 120 degrees of arc. The player rotates
+  it freely using the right stick or mouse. Any spell that strikes the concave (inner) face reflects off at the
+  angle of incidence. A spell that hits the convex (outer) face or the player's body kills that player instantly.
+  Reflecting an enemy spell back at them - or redirecting it at a third player - is the primary way to score a
+  kill without holding a spell yourself.
+</p>
+
+<hr>
+
+<h3>SPELL ITEMS</h3>
+
+<p>
+  Four spell types are available. All kill in one hit if they contact a player's body. Spells bounce off solid
+  terrain surfaces. A mirror reflect resets the bounce count, giving a reflected spell fresh range.
+</p>
+
+<ul>
+  <li>
+    <b>Fireball</b> - A medium-speed projectile that travels in a straight line and bounces off terrain up to
+    2 times before disappearing.
+  </li>
+  <li>
+    <b>Frost Lance</b> - A faster, narrower projectile that bounces up to 4 times. On a successful mirror
+    reflect it splits into 2 bolts that spread apart slightly, making it harder to block with a single mirror arc.
+  </li>
+  <li>
+    <b>Stone Burst</b> - Fires a spread of 3 rocks simultaneously in a cone. Cannot be reflected - rocks
+    shatter on mirror contact and disappear harmlessly. Forces players to dodge rather than reflect.
+  </li>
+  <li>
+    <b>Void Pulse</b> - A slow-moving orb that never disappears on its own. It drifts slightly off its ideal
+    reflection angle each time it bounces, becoming increasingly unpredictable the longer it stays alive.
+  </li>
+</ul>
+
+<hr>
+
+<h3>LEVEL DESIGN</h3>
+
+<p>
+  <b>Level 1 - The Prism</b><br>
+  A simple flat arena with one raised platform in the center. The left and right walls are reflective - spells
+  bounce off them exactly as they would off a player's mirror. No hazards. This level teaches the core loop:
+  grab the spell, aim, fire, reflect. The single raised platform gives players a height advantage to contest and
+  creates natural positioning decisions around item drops.
+</p>
+
+<p>
+  <b>Level 2 - Volcano Vent</b><br>
+  Two platforms at different heights above a lava floor. Touching the lava kills instantly, the same as taking
+  a spell hit. A single spell cannon is mounted on one wall and fires a Fireball every 10 seconds. The cannon
+  shot follows the same reflection rules as player-cast spells and can be deflected back across the stage by a
+  well-placed mirror. Players must manage positioning around both the lava below and the cannon on the wall
+  while still competing for spell item drops.
+</p>
+
+<hr>
+
+<h3>CONTROLS</h3>
+
+<p><b>Gamepad (Xbox layout):</b></p>
+<ul>
+  <li><b>Left Stick</b> - Move left / right</li>
+  <li><b>Right Stick</b> - Rotate mirror arc</li>
+  <li><b>A</b> - Jump</li>
+  <li><b>RT</b> - Cast held spell</li>
+  <li><b>Start</b> - Pause / Unpause</li>
+</ul>
+
+<p><b>Keyboard and Mouse (Player 1 default):</b></p>
+<ul>
+  <li><b>A / D</b> - Move left / right</li>
+  <li><b>Mouse</b> - Rotate mirror arc</li>
+  <li><b>Space</b> - Jump</li>
+  <li><b>Left Mouse Button</b> - Cast held spell</li>
+  <li><b>ESC</b> - Pause / Unpause</li>
+</ul>
+
+<hr>
+
+<h3>GRAPHICAL USER INTERFACE</h3>
+
+<ul>
+  <li>
+    <b>Splash Screen</b> - Displays the Mirror Mage logo on a dark background with a "Click to Start" prompt.
+    Clicking anywhere advances to the Main Menu.
+  </li>
+
+  <li>
+    <b>Main Menu</b> - Four options: New Game, Level Select, Controls, and Help. New Game starts from Level 1
+    with a player count selection.
+  </li>
+
+  <li>
+    <b>Level Select Screen</b> - Shows the two available levels as selectable tiles, each with a name and a
+    small preview image. Both levels are freely accessible in the game.
+  </li>
+
+  <li>
+    <b>Controls Screen</b> - Lists all inputs for both gamepad and keyboard and mouse.
+  </li>
+
+  <li>
+    <b>Help Screen</b> - Contains the game backstory, a brief explanation of the mirror mechanic, and the
+    names of the developers.
+  </li>
+
+  <li>
+    <b>In-Game HUD</b> - Each player's stock icons are displayed at the top of the screen, one group per
+    player. A stock icon disappears each time that player is killed. No other persistent HUD elements are
+    required. A pause overlay is accessible at any time via ESC or Start.
+  </li>
+
+  <li>
+    <b>Round End Screen</b> - When one player wins, a screen announces the winner and offers Play Again
+    (restarts the same level) and Main Menu as options.
+  </li>
+</ul>
+
+<hr>
+
+<h3>WIREFRAMES</h3>
+
+<h4>Title Screen / Splash Screen</h4>
+<img src="title.png" alt="Title Screen Wireframe" style="max-width: 100%; border: 1px solid #ccc; margin: 10px 0;">
+
+<h4>Lobby / Player Selection</h4>
+<img src="lobby.png" alt="Lobby Screen Wireframe" style="max-width: 100%; border: 1px solid #ccc; margin: 10px 0;">
+
+<h4>Tutorial Screen</h4>
+<img src="tutorial.png" alt="Tutorial Screen Wireframe" style="max-width: 100%; border: 1px solid #ccc; margin: 10px 0;">
+
+<h4>Controls Screen</h4>
+<img src="controls.png" alt="Controls Screen Wireframe" style="max-width: 100%; border: 1px solid #ccc; margin: 10px 0;">
+
+<h4>Help Screen</h4>
+<img src="help.png" alt="Help Screen Wireframe" style="max-width: 100%; border: 1px solid #ccc; margin: 10px 0;">
+
+<h4>Map Selection Screen</h4>
+<img src="maps.png" alt="Map Selection Screen Wireframe" style="max-width: 100%; border: 1px solid #ccc; margin: 10px 0;">
+
+<h4>In-Game Screen</h4>
+<img src="gameplay.png" alt="Gameplay Screen Wireframe" style="max-width: 100%; border: 1px solid #ccc; margin: 10px 0;">
+
+<h4>Pause Menu</h4>
+<img src="pause.png" alt="Pause Menu Wireframe" style="max-width: 100%; border: 1px solid #ccc; margin: 10px 0;">
+
+<h4>Win Screen</h4>
+<img src="win.png" alt="Win Screen Wireframe" style="max-width: 100%; border: 1px solid #ccc; margin: 10px 0;">
+
+<hr>
+
+<h3>ARTWORK</h3>
+
+<p>All artwork will be original. The following is the minimum needed for a working game:</p>
+
+<ul>
+  <li>
+    <b>Mage Characters (x2)</b> - One sprite sheet per character, differentiated by color for player identification,
+    with animations for: Idle, Run, Jump, Cast, and Death.
+  </li>
+
+  <li>
+    <b>Arc Mirror</b> - A single curved arc sprite that rotates around the mage.
+  </li>
+
+  <li>
+    <b>Spell Projectiles (x4)</b> - A projectile sprite and impact animation for each of the four spell types.
+  </li>
+
+  <li>
+    <b>Spell Item Pickup Icons (x4)</b> - A glowing ground icon for each spell type indicating a collectible item.
+  </li>
+
+  <li>
+    <b>Item Drop Indicator</b> - A glowing marker that appears one second before a spell item lands.
+  </li>
+
+  <li>
+    <b>Level 1 Tiles</b> - Floor tile, platform tile, and reflective wall tile for The Prism.
+  </li>
+
+  <li>
+    <b>Level 2 Tiles and Props</b> - Floor tile, platform tile, lava tile, and spell cannon sprite for
+    Volcano Vent.
+  </li>
+
+  <li>
+    <b>HUD Elements</b> - Stock icon and empty stock slot icon, color-coded per player.
+  </li>
+
+  <li>
+    <b>Game Logo</b> - For the splash screen.
+  </li>
+</ul>
+
+<hr>
+
+<h3>SOUND EFFECTS</h3>
+
+<p>Minimum sound effects needed:</p>
+
+<ul>
+  <li>Spell item landing on stage</li>
+  <li>Spell item pickup</li>
+  <li>Cast sound for each spell type (x4)</li>
+  <li>Spell impact on terrain</li>
+  <li>Mirror reflect</li>
+  <li>Player death</li>
+  <li>Round end win / loss tone</li>
+</ul>
+
+<hr>
+
+<h3>MUSIC</h3>
+
+<p>
+  One looping background track per level. Music must be original or used with explicit permission. A single
+  shared track may be used across both levels if time does not permit two separate compositions.
+</p>
+
+
+</body>
+</html>
