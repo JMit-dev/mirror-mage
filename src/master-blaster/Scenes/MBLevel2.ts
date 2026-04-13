@@ -67,8 +67,13 @@ export default class Level2 extends MBLevel {
     public loadScene(): void {
         // Load in the tilemap
         this.load.tilemap(this.tilemapKey, Level2.TILEMAP_PATH);
+        // Load in the player's sprite
+        this.load.spritesheet(this.playerSpriteKey, Level2.PLAYER_SPRITE_PATH);
         // Level2-specific music
         this.load.audio(this.levelMusicKey, Level2.LEVEL_MUSIC_PATH);
+        this.load.audio(this.jumpAudioKey, Level2.JUMP_AUDIO_PATH);
+        this.load.audio(this.tileDestroyedAudioKey, Level2.TILE_DESTROYED_PATH);
+        this.load.audio(this.deathAudioKey, Level2.DEATH_AUDIO_PATH);
     }
 
     public unloadScene(): void {
