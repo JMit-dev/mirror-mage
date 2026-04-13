@@ -7,6 +7,7 @@ import { GameEventType } from "../../Wolfie2D/Events/GameEventType";
 import Viewport from "../../Wolfie2D/SceneGraph/Viewport";
 import RenderingManager from "../../Wolfie2D/Rendering/RenderingManager";
 import SceneManager from "../../Wolfie2D/Scene/SceneManager";
+import PlayerWeapon from "../Player/PlayerWeapon";
 
 /**
  * The second level for the Master Blaster. It should be the goose dungeon / cave.
@@ -70,6 +71,7 @@ export default class Level2 extends MBLevel {
         this.load.tilemap(this.tilemapKey, Level2.TILEMAP_PATH);
         // Load in the player's sprite
         this.load.spritesheet(this.playerSpriteKey, Level2.PLAYER_SPRITE_PATH);
+        this.load.image(PlayerWeapon.PROJECTILE_SPRITE_KEY, PlayerWeapon.PROJECTILE_SPRITE_PATH);
         // Level2-specific music
         this.load.audio(this.levelMusicKey, Level2.LEVEL_MUSIC_PATH);
         this.load.audio(this.jumpAudioKey, Level2.JUMP_AUDIO_PATH);
@@ -80,6 +82,7 @@ export default class Level2 extends MBLevel {
     public unloadScene(): void {
         this.emitter.fireEvent(GameEventType.STOP_SOUND, {key: this.levelMusicKey});
         this.load.keepSpritesheet(this.playerSpriteKey);
+        this.load.keepImage(PlayerWeapon.PROJECTILE_SPRITE_KEY);
         this.load.keepAudio(this.jumpAudioKey);
         this.load.keepAudio(this.tileDestroyedAudioKey);
         this.load.keepAudio(this.deathAudioKey);

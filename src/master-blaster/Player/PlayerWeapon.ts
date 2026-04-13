@@ -1,61 +1,116 @@
-import Particle from "../../Wolfie2D/Nodes/Graphics/Particle";
+import AABB from "../../Wolfie2D/DataTypes/Shapes/AABB";
 import Vec2 from "../../Wolfie2D/DataTypes/Vec2";
-import ParticleSystem from "../../Wolfie2D/Rendering/Animations/ParticleSystem";
-import Color from "../../Wolfie2D/Utils/Color";
-import { EaseFunctionType } from "../../Wolfie2D/Utils/EaseFunctions";
-import RandUtils from "../../Wolfie2D/Utils/RandUtils";
+import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
+import Scene from "../../Wolfie2D/Scene/Scene";
 
- 
+type ProjectileData = {
+    sprite: Sprite;
+    direction: Vec2;
+    lifetimeRemaining: number;
+    active: boolean;
+};
 
 /**
- * 
- * The particle system used for the player's attack. Particles in the particle system should
- * be spawned at the player's position and fired in the direction of the mouse's position.
+ * A simple projectile pool for the player's attack.
  */
-export default class PlayerWeapon extends ParticleSystem {
-    protected fireDirection: Vec2 = Vec2.RIGHT;
+export default class PlayerWeapon {
+    public static readonly PROJECTILE_SPRITE_KEY = "PLAYER_PROJECTILE";
+    public static readonly PROJECTILE_SPRITE_PATH = "game_assets/spritesheets/projectile temp.png";
 
-    public getPool(): Readonly<Array<Particle>> {
-        return this.particlePool;
+    protected static readonly PROJECTILE_SPEED = 250;
+    protected static readonly PROJECTILE_LIFETIME = 3;
+    protected static readonly PROJECTILE_COOLDOWN = 2;
+    protected static readonly PROJECTILE_SCALE = 2;
+    protected static readonly PROJECTILE_POOL_SIZE = 3;
+    protected static readonly PROJECTILE_SPAWN_PADDING = 8;
+
+    protected projectiles: Array<ProjectileData>;
+    protected cooldownRemaining: number;
+
+    public constructor() {
+        this.projectiles = [];
+        this.cooldownRemaining = 0;
     }
 
-    /**
-     * @returns true if the particle system is running; false otherwise.
-     */
-    public isSystemRunning(): boolean { return this.systemRunning; }
+    public initializePool(scene: Scene, layer: string): void {
+        for (let i = 0; i < PlayerWeapon.PROJECTILE_POOL_SIZE; i++) {
+            const sprite = scene.add.sprite(PlayerWeapon.PROJECTILE_SPRITE_KEY, layer);
+            sprite.scale.set(PlayerWeapon.PROJECTILE_SCALE, PlayerWeapon.PROJECTILE_SCALE);
+            sprite.addPhysics(new AABB(sprite.position.clone(), sprite.boundary.halfSize.clone()));
+            sprite.visible = false;
+            sprite.disablePhysics();
 
-    /**
-     * Sets the direction particles should fire in when the system starts.
-     */
-    public setFireDirection(direction: Vec2): void {
-        if (!direction.isZero()) {
-            this.fireDirection = direction.normalized();
+            this.projectiles.push({
+                sprite,
+                direction: Vec2.RIGHT,
+                lifetimeRemaining: 0,
+                active: false
+            });
         }
     }
 
-    /**
-     * Sets the animations for a particle in the player's weapon
-     * @param particle the particle to give the animation to
-     */
-    public setParticleAnimation(particle: Particle) {
-        const spread = RandUtils.randFloat(-Math.PI/8, Math.PI/8);
-        const speed = RandUtils.randFloat(100, 200);
-        particle.vel = this.fireDirection.clone().rotateCCW(spread).scale(speed);
-        particle.color = Color.RED;
+    public update(deltaT: number): void {
+        this.cooldownRemaining = Math.max(0, this.cooldownRemaining - deltaT);
 
-        // Give the particle tweens
-        particle.tweens.add("active", {
-            startDelay: 0,
-            duration: this.lifetime,
-            effects: [
-                {
-                    property: "alpha",
-                    start: 1,
-                    end: 0,
-                    ease: EaseFunctionType.IN_OUT_SINE
-                }
-            ]
-        });
+        for (const projectile of this.projectiles) {
+            if (!projectile.active) {
+                continue;
+            }
+
+            projectile.lifetimeRemaining -= deltaT;
+            if (projectile.lifetimeRemaining <= 0) {
+                this.deactivateProjectile(projectile);
+                continue;
+            }
+
+            projectile.sprite.move(projectile.direction.scaled(PlayerWeapon.PROJECTILE_SPEED * deltaT));
+        }
     }
 
+    public tryFire(playerPosition: Vec2, playerHalfWidth: number, facingLeft: boolean): boolean {
+        if (this.cooldownRemaining > 0) {
+            return false;
+        }
+
+        const projectile = this.projectiles.find(entry => !entry.active);
+        if (projectile === undefined) {
+            return false;
+        }
+
+        const direction = new Vec2(facingLeft ? -1 : 1, 0);
+        const xOffset = playerHalfWidth + projectile.sprite.boundary.halfSize.x + PlayerWeapon.PROJECTILE_SPAWN_PADDING;
+        const spawnPosition = playerPosition.clone().add(new Vec2(direction.x * xOffset, 0));
+
+        projectile.direction = direction;
+        projectile.lifetimeRemaining = PlayerWeapon.PROJECTILE_LIFETIME;
+        projectile.active = true;
+        projectile.sprite.position.copy(spawnPosition);
+        projectile.sprite.invertX = facingLeft;
+        projectile.sprite.visible = true;
+        projectile.sprite.enablePhysics();
+        projectile.sprite._velocity.zero();
+        projectile.sprite.collidedWithTilemap = false;
+
+        this.cooldownRemaining = PlayerWeapon.PROJECTILE_COOLDOWN;
+        return true;
+    }
+
+    public getProjectiles(): Readonly<Array<ProjectileData>> {
+        return this.projectiles;
+    }
+
+    public deactivateById(id: number): void {
+        const projectile = this.projectiles.find(entry => entry.sprite.id === id);
+        if (projectile !== undefined) {
+            this.deactivateProjectile(projectile);
+        }
+    }
+
+    protected deactivateProjectile(projectile: ProjectileData): void {
+        projectile.active = false;
+        projectile.lifetimeRemaining = 0;
+        projectile.sprite.visible = false;
+        projectile.sprite.disablePhysics();
+        projectile.sprite._velocity.zero();
+    }
 }

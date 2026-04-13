@@ -6,6 +6,7 @@ import SceneManager from "../../Wolfie2D/Scene/SceneManager";
 import Viewport from "../../Wolfie2D/SceneGraph/Viewport";
 import MBLevel2 from "./MBLevel2";
 import { GameEventType } from "../../Wolfie2D/Events/GameEventType";
+import PlayerWeapon from "../Player/PlayerWeapon";
 
 /**
  * The first level for Master Blaster - should be the one with the grass and the clouds.
@@ -69,6 +70,7 @@ export default class Level1 extends MBLevel {
         this.load.tilemap(this.tilemapKey, Level1.TILEMAP_PATH);
         // Load in the player's sprite
         this.load.spritesheet(this.playerSpriteKey, Level1.PLAYER_SPRITE_PATH);
+        this.load.image(PlayerWeapon.PROJECTILE_SPRITE_KEY, PlayerWeapon.PROJECTILE_SPRITE_PATH);
         // Audio and music
         this.load.audio(this.levelMusicKey, Level1.LEVEL_MUSIC_PATH);
         this.load.audio(this.jumpAudioKey, Level1.JUMP_AUDIO_PATH);
@@ -82,6 +84,7 @@ export default class Level1 extends MBLevel {
     public unloadScene(): void {
         this.emitter.fireEvent(GameEventType.STOP_SOUND, {key: this.levelMusicKey});
         this.load.keepSpritesheet(this.playerSpriteKey);
+        this.load.keepImage(PlayerWeapon.PROJECTILE_SPRITE_KEY);
         this.load.keepAudio(this.jumpAudioKey);
         this.load.keepAudio(this.tileDestroyedAudioKey);
         this.load.keepAudio(this.deathAudioKey);

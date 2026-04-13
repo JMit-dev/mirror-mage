@@ -106,11 +106,6 @@ export default class PlayerController extends StateMachineAI {
 		direction.y = (Input.isJustPressed(MBControls.JUMP) ? -1 : 0);
 		return direction;
     }
-    /** 
-     * Gets the direction of the mouse from the player's position as a Vec2
-     */
-    public get faceDir(): Vec2 { return this.owner.position.dirTo(Input.getGlobalMousePosition()); }
-
     public update(deltaT: number): void {
 		super.update(deltaT);
 
@@ -118,15 +113,11 @@ export default class PlayerController extends StateMachineAI {
             return;
         }
 
-        if (Input.isJustPressed(MBControls.ATTACK)) {
-            this.weapon.setFireDirection(this.faceDir);
-            this.owner.animation.play(PlayerAnimations.ATTACK, false);
-        }
-
-        // If the player hits the attack button and the weapon system isn't running, restart the system and fire!
-        if (Input.isPressed(MBControls.ATTACK) && !this.weapon.isSystemRunning()) {
-            // Start the particle system at the player's current position
-            this.weapon.startSystem(500, 0, this.owner.position);
+        if (Input.isMouseJustPressed(0)) {
+            const fired = this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX);
+            if (fired) {
+                this.owner.animation.play(PlayerAnimations.ATTACK, false);
+            }
         }
 
 	}

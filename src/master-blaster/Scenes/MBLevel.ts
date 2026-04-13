@@ -24,8 +24,8 @@ import { MBEvents } from "../MBEvents";
 import { MBPhysicsGroups } from "../MBPhysicsGroups";
 import MBFactoryManager from "../Factory/MBFactoryManager";
 import MainMenu from "./MainMenu";
-import Particle from "../../Wolfie2D/Nodes/Graphics/Particle";
 import AudioManager, { AudioChannelType } from "../../Wolfie2D/Sound/AudioManager";
+import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 
 /**
  * A const object for the layer names
@@ -158,10 +158,11 @@ export default abstract class MBLevel extends Scene {
     /* Update method for the scene */
 
     public updateScene(deltaT: number) {
-        // Check active weapon particles for tile hits after physics has updated.
-        for (const particle of this.playerWeaponSystem.getPool()) {
-            if (particle.inUse && particle.collidedWithTilemap) {
-                this.handleParticleHit(particle.id);
+        this.playerWeaponSystem.update(deltaT);
+
+        for (const projectile of this.playerWeaponSystem.getProjectiles()) {
+            if (projectile.active && projectile.sprite.collidedWithTilemap) {
+                this.handleProjectileHit(projectile.sprite.id);
             }
         }
 
@@ -209,53 +210,62 @@ export default abstract class MBLevel extends Scene {
     /* Handlers for the different events the scene is subscribed to */
 
     /**
-     * Handle particle hit events
-     * @param particleId the id of the particle
+     * Handle projectile hit events
+     * @param projectileId the id of the projectile
      */
-    protected handleParticleHit(particleId: number): void {
-        let particles = this.playerWeaponSystem.getPool();
+    protected handleProjectileHit(projectileId: number): void {
+        let projectiles = this.playerWeaponSystem.getProjectiles();
 
-        let particle = particles.find(particle => particle.id === particleId);
-        if (particle !== undefined) {
+        let projectile = projectiles.find(projectile => projectile.sprite.id === projectileId);
+        if (projectile !== undefined) {
+            const sprite = projectile.sprite;
             // Get the destructable tilemap
             let tilemap = this.destructable;
 
-            let min = new Vec2(particle.sweptRect.left, particle.sweptRect.top);
-            let max = new Vec2(particle.sweptRect.right, particle.sweptRect.bottom);
+            let min = new Vec2(sprite.sweptRect.left, sprite.sweptRect.top);
+            let max = new Vec2(sprite.sweptRect.right, sprite.sweptRect.bottom);
 
             // Convert the min/max x/y to the min and max row/col in the tilemap array
             let minIndex = tilemap.getColRowAt(min);
             let maxIndex = tilemap.getColRowAt(max);
 
-            // Loop over all possible tiles the particle could be colliding with 
+            let hitDestructible = false;
+
+            // Loop over all possible tiles the projectile could be colliding with 
             for(let col = minIndex.x; col <= maxIndex.x; col++){
                 for(let row = minIndex.y; row <= maxIndex.y; row++){
-                    // If the tile is collideable -> check if this particle is colliding with the tile
-                    if(tilemap.isTileCollidable(col, row) && this.particleHitTile(tilemap, particle, col, row)){
+                    // If the tile is collideable -> check if this projectile is colliding with the tile
+                    if(tilemap.isTileCollidable(col, row) && this.projectileHitTile(tilemap, sprite, col, row)){
                         this.emitter.fireEvent(GameEventType.PLAY_SOUND, { key: this.tileDestroyedAudioKey, loop: false, holdReference: false });
                         tilemap.setTileAtRowCol(new Vec2(col, row), 0);
-                        particle.setParticleInactive();
-                        return;
+                        hitDestructible = true;
+                        break;
                     }
                 }
+
+                if (hitDestructible) {
+                    break;
+                }
             }
+
+            this.playerWeaponSystem.deactivateById(projectileId);
         }
     }
 
     /**
-     * Checks if a particle hit the tile at the (col, row) coordinates in the tilemap.
+     * Checks if a projectile hit the tile at the (col, row) coordinates in the tilemap.
      * 
      * @param tilemap the tilemap
-     * @param particle the particle
+     * @param projectile the projectile
      * @param col the column the 
      * @param row the row 
-     * @returns true of the particle hit the tile; false otherwise
+     * @returns true of the projectile hit the tile; false otherwise
      */
-    protected particleHitTile(tilemap: OrthogonalTilemap, particle: Particle, col: number, row: number): boolean {
+    protected projectileHitTile(tilemap: OrthogonalTilemap, projectile: Sprite, col: number, row: number): boolean {
         const tileSize = tilemap.getTileSize();
         const tileCenter = new Vec2(col * tileSize.x + tileSize.x/2, row * tileSize.y + tileSize.y/2);
         const tileCollider = new AABB(tileCenter, tileSize.scaled(1/2));
-        return particle.sweptRect.overlapArea(tileCollider) > 0;
+        return projectile.sweptRect.overlapArea(tileCollider) > 0;
     }
 
     /**
@@ -414,10 +424,10 @@ export default abstract class MBLevel extends Scene {
      * Initializes the particles system used by the player's weapon.
      */
     protected initializeWeaponSystem(): void {
-        this.playerWeaponSystem = new PlayerWeapon(50, Vec2.ZERO, 1000, 3, 0, 50);
+        this.playerWeaponSystem = new PlayerWeapon();
         this.playerWeaponSystem.initializePool(this, MBLayers.PRIMARY);
-        for (const particle of this.playerWeaponSystem.getPool()) {
-            particle.setGroup(MBPhysicsGroups.PLAYER_WEAPON);
+        for (const projectile of this.playerWeaponSystem.getProjectiles()) {
+            projectile.sprite.setGroup(MBPhysicsGroups.PLAYER_WEAPON);
         }
     }
     /**
