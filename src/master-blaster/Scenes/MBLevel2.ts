@@ -24,7 +24,7 @@ export default class Level2 extends MBLevel {
     public static readonly WALLS_LAYER_KEY = "Main";
 
     public static readonly LEVEL_MUSIC_KEY = "LEVEL_MUSIC";
-    public static readonly LEVEL_MUSIC_PATH = "game_assets/music/Song made with chiptune.wav";
+    public static readonly LEVEL_MUSIC_PATH = "game_assets/music/temp song 2.wav";
 
     public static readonly JUMP_AUDIO_KEY = "PLAYER_JUMP";
     public static readonly JUMP_AUDIO_PATH = "game_assets/sounds/jump.wav";
@@ -52,6 +52,7 @@ export default class Level2 extends MBLevel {
 
         // Music and sound
         this.levelMusicKey = Level2.LEVEL_MUSIC_KEY
+        this.levelMusicVolume = 1;
         this.jumpAudioKey = Level2.JUMP_AUDIO_KEY;
         this.tileDestroyedAudioKey = Level2.TILE_DESTROYED_KEY;
         this.deathAudioKey = Level2.DEATH_AUDIO_KEY;

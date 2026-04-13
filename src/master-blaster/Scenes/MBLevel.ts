@@ -25,6 +25,7 @@ import { MBPhysicsGroups } from "../MBPhysicsGroups";
 import MBFactoryManager from "../Factory/MBFactoryManager";
 import MainMenu from "./MainMenu";
 import Particle from "../../Wolfie2D/Nodes/Graphics/Particle";
+import AudioManager, { AudioChannelType } from "../../Wolfie2D/Sound/AudioManager";
 
 /**
  * A const object for the layer names
@@ -91,6 +92,7 @@ export default abstract class MBLevel extends Scene {
 
     /** Sound and music */
     protected levelMusicKey: string;
+    protected levelMusicVolume: number = 1;
     protected jumpAudioKey: string;
     protected tileDestroyedAudioKey: string;
     protected deathAudioKey: string;
@@ -148,8 +150,9 @@ export default abstract class MBLevel extends Scene {
         // Start the black screen fade out
         this.levelTransitionScreen.tweens.play("fadeOut");
 
+        AudioManager.setVolume(AudioChannelType.MUSIC, this.levelMusicVolume);
         // Start playing the level music for the game level
-        this.emitter.fireEvent(GameEventType.PLAY_SOUND, {key: this.levelMusicKey, loop: true, holdReference: true});
+        this.emitter.fireEvent(GameEventType.PLAY_SOUND, {key: this.levelMusicKey, loop: true, holdReference: true, channel: AudioChannelType.MUSIC});
     }
 
     /* Update method for the scene */

@@ -1,5 +1,4 @@
 import Vec2 from "../../Wolfie2D/DataTypes/Vec2";
-import { GameEventType } from "../../Wolfie2D/Events/GameEventType";
 import Input from "../../Wolfie2D/Input/Input";
 import Button from "../../Wolfie2D/Nodes/UIElements/Button";
 import Label from "../../Wolfie2D/Nodes/UIElements/Label";
@@ -16,14 +15,6 @@ export const MenuLayers = {
 } as const;
 
 export default class MainMenu extends Scene {
-
-    public static readonly MUSIC_KEY = "MAIN_MENU_MUSIC";
-    public static readonly MUSIC_PATH = "game_assets/music/MB_menu_music.mp3";
-
-    public loadScene(): void {
-        // Load the menu song
-        this.load.audio(MainMenu.MUSIC_KEY, MainMenu.MUSIC_PATH);
-    }
 
     public startScene(): void {
         Input.enableInput();
@@ -57,9 +48,6 @@ export default class MainMenu extends Scene {
         level2Button.onClick = () => {
             this.sceneManager.changeToScene(Level2);
         };
-
-        // Scene has started, so start playing music
-        this.emitter.fireEvent(GameEventType.PLAY_SOUND, {key: MainMenu.MUSIC_KEY, loop: true, holdReference: true});
     }
 
     protected createLevelButton(position: Vec2, text: string): Button {
@@ -73,10 +61,5 @@ export default class MainMenu extends Scene {
         button.font = "PixelSimple";
         button.fontSize = 32;
         return button;
-    }
-
-    public unloadScene(): void {
-        // The scene is being destroyed, so we can stop playing the song
-        this.emitter.fireEvent(GameEventType.STOP_SOUND, {key: MainMenu.MUSIC_KEY});
     }
 }
