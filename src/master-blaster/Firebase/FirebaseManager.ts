@@ -1,26 +1,13 @@
-/** Minimal typings for the Firebase compat global loaded via CDN */
-declare const firebase: {
-    database(url?: string): FirebaseDatabase;
-};
+/**
+ * Manages room state via the Firebase Realtime Database REST API.
+ * Uses plain fetch() — no Firebase SDK required.
+ *
+ * Rooms live at: rooms/{roomCode}/players/{playerId}
+ * Each player entry: { slot: 1|2, joinedAt: number }
+ */
 
-interface FirebaseDatabase {
-    ref(path: string): FirebaseRef;
-}
+const DB_BASE = "https://mirror-mage-default-rtdb.firebaseio.com";
 
-interface FirebaseRef {
-    set(value: any): Promise<void>;
-    once(event: string): Promise<FirebaseSnapshot>;
-    on(event: string, callback: (snapshot: FirebaseSnapshot) => void): void;
-    off(): void;
-    onDisconnect(): { remove(): Promise<void> };
-    child(path: string): FirebaseRef;
-}
-
-interface FirebaseSnapshot {
-    val(): any;
-}
-
-/** Shared room state updated by Firebase listeners */
 export interface RoomState {
     roomCode: string;
     playerCount: number;
@@ -30,16 +17,7 @@ export interface RoomState {
     errorMsg: string;
 }
 
-/**
- * Manages Firebase Realtime Database room creation and joining for the lobby.
- *
- * Rooms live at: rooms/{roomCode}/players/{playerId}
- * Each player entry: { slot: 1|2, joinedAt: number }
- */
 export default class FirebaseManager {
-    private static readonly DB_URL =
-        "https://mirror-mage-default-rtdb.firebaseio.com";
-
     private static _state: RoomState = {
         roomCode: "",
         playerCount: 0,
@@ -51,6 +29,7 @@ export default class FirebaseManager {
 
     private static _playerId: string = "";
     private static _initialized: boolean = false;
+    private static _pollHandle: any = null;
 
     public static get state(): Readonly<RoomState> {
         return this._state;
@@ -65,18 +44,105 @@ export default class FirebaseManager {
         const existingCode = this.readCodeFromHash();
         if (existingCode) {
             this._state.roomCode = existingCode;
+            this._state.joinUrl = this.buildJoinUrl(existingCode);
             this.joinRoom(existingCode);
         } else {
             const code = this.generateCode();
             this._state.roomCode = code;
+            this._state.joinUrl = this.buildJoinUrl(code);
             window.location.hash = "room=" + code;
             this.createRoom(code);
         }
+
+        window.addEventListener("beforeunload", () => this.removePlayer());
     }
 
     // -------------------------------------------------------------------------
-    // Private helpers
+    // Room operations
     // -------------------------------------------------------------------------
+
+    private static createRoom(code: string): void {
+        this.putPlayer(code, 1)
+            .then(() => {
+                this._state.mySlot = 1;
+                this.startPolling(code);
+            })
+            .catch((e) => this.setError(e));
+    }
+
+    private static joinRoom(code: string): void {
+        fetch(DB_BASE + "/rooms/" + code + "/players.json")
+            .then((r) => r.json())
+            .then((players) => {
+                const count = players ? Object.keys(players).length : 0;
+                if (count >= 2) {
+                    this._state.status = "unavailable";
+                    this._state.playerCount = 2;
+                    return;
+                }
+                return this.putPlayer(code, 2).then(() => {
+                    this._state.mySlot = 2;
+                    this.startPolling(code);
+                });
+            })
+            .catch((e) => this.setError(e));
+    }
+
+    private static putPlayer(code: string, slot: number): Promise<void> {
+        return fetch(
+            DB_BASE + "/rooms/" + code + "/players/" + this._playerId + ".json",
+            {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ slot, joinedAt: Date.now() }),
+            }
+        ).then((r) => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+        });
+    }
+
+    private static removePlayer(): void {
+        const code = this._state.roomCode;
+        if (!code || !this._playerId) return;
+        // sendBeacon keeps the request alive through page unload
+        navigator.sendBeacon(
+            DB_BASE + "/rooms/" + code + "/players/" + this._playerId + ".json?x-http-method-override=DELETE",
+            new Blob(['null'], { type: 'application/json' })
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Polling
+    // -------------------------------------------------------------------------
+
+    private static startPolling(code: string): void {
+        // Immediately fetch once, then every 2 seconds
+        this.fetchPlayerCount(code);
+        this._pollHandle = setInterval(() => this.fetchPlayerCount(code), 2000);
+    }
+
+    private static fetchPlayerCount(code: string): void {
+        fetch(DB_BASE + "/rooms/" + code + "/players.json")
+            .then((r) => r.json())
+            .then((players) => {
+                const count = players ? Object.keys(players).length : 0;
+                this._state.playerCount = count;
+                if (this._state.status !== "unavailable") {
+                    this._state.status = count >= 2 ? "full" : "waiting";
+                }
+            })
+            .catch((e) => console.warn("[FirebaseManager] poll error:", e));
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    private static setError(e: any): void {
+        console.error("[FirebaseManager] error:", e);
+        this._state.status = "error";
+        this._state.errorMsg = String(e);
+    }
 
     private static getOrCreatePlayerId(): string {
         try {
@@ -106,78 +172,10 @@ export default class FirebaseManager {
     }
 
     private static buildJoinUrl(code: string): string {
-        return window.location.origin + window.location.pathname + "#room=" + code;
-    }
-
-    private static createRoom(code: string): void {
-        try {
-            if (typeof firebase === "undefined" || typeof firebase.database !== "function") {
-                throw new Error("Firebase SDK not loaded");
-            }
-            const playerRef = firebase.database(FirebaseManager.DB_URL).ref(
-                "rooms/" + code + "/players/" + this._playerId
-            );
-            playerRef
-                .set({ slot: 1, joinedAt: Date.now() })
-                .catch((err: any) => console.error("[FirebaseManager] set failed:", err));
-            playerRef.onDisconnect().remove();
-
-            this._state.mySlot = 1;
-            this._state.status = "waiting";
-            this._state.joinUrl = this.buildJoinUrl(code);
-
-            this.listenToRoom(code);
-        } catch (e) {
-            console.error("[FirebaseManager] createRoom error:", e);
-            this._state.status = "error";
-            this._state.errorMsg = String(e);
-        }
-    }
-
-    private static joinRoom(code: string): void {
-        try {
-            this._state.joinUrl = this.buildJoinUrl(code);
-
-            firebase
-                .database()
-                .ref("rooms/" + code + "/players")
-                .once("value")
-                .then((snapshot) => {
-                    const players = snapshot.val() || {};
-                    const count = Object.keys(players).length;
-
-                    if (count >= 2) {
-                        this._state.status = "full";
-                        this._state.playerCount = 2;
-                        return;
-                    }
-
-                    const playerRef = firebase.database(FirebaseManager.DB_URL).ref(
-                        "rooms/" + code + "/players/" + this._playerId
-                    );
-                    playerRef.set({ slot: 2, joinedAt: Date.now() });
-                    playerRef.onDisconnect().remove();
-                    this._state.mySlot = 2;
-                    this.listenToRoom(code);
-                });
-        } catch (e) {
-            console.error("[FirebaseManager] joinRoom error:", e);
-            this._state.status = "error";
-            this._state.errorMsg = String(e);
-        }
-    }
-
-    private static listenToRoom(code: string): void {
-        firebase
-            .database()
-            .ref("rooms/" + code + "/players")
-            .on("value", (snapshot) => {
-                const players = snapshot.val() || {};
-                this._state.playerCount = Object.keys(players).length;
-                if (this._state.status !== "full") {
-                    this._state.status =
-                        this._state.playerCount >= 2 ? "full" : "waiting";
-                }
-            });
+        return (
+            window.location.origin +
+            window.location.pathname +
+            "#room=" + code
+        );
     }
 }
