@@ -11,12 +11,12 @@ import MainMenu from "./MainMenu";
 const LAYER = "LOBBY";
 
 export default class LobbyScene extends Scene {
-    private roomCodeLabel: Label;
-    private urlLabel: Label;
-    private playerCountLabel: Label;
-    private slot1Label: Label;
-    private slot2Label: Label;
-    private statusLabel: Label;
+    private roomCodeLabel!: Label;
+    private urlLabel!: Label;
+    private playerCountLabel!: Label;
+    private slot1Label!: Label;
+    private slot2Label!: Label;
+    private statusLabel!: Label;
 
     public startScene(): void {
         FirebaseManager.initialize();
@@ -143,7 +143,7 @@ export default class LobbyScene extends Scene {
         }
 
         if (s.status === "error") {
-            this.statusLabel.text = "Could not connect to Firebase.";
+            this.statusLabel.text = s.errorMsg || "Could not connect to Firebase.";
             this.statusLabel.textColor = new Color(220, 80, 80);
             return;
         }

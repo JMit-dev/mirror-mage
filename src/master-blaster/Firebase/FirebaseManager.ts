@@ -27,6 +27,7 @@ export interface RoomState {
     mySlot: number;
     status: "waiting" | "full" | "unavailable" | "error";
     joinUrl: string;
+    errorMsg: string;
 }
 
 /**
@@ -42,6 +43,7 @@ export default class FirebaseManager {
         mySlot: 0,
         status: "waiting",
         joinUrl: "",
+        errorMsg: "",
     };
 
     private static _playerId: string = "";
@@ -106,10 +108,15 @@ export default class FirebaseManager {
 
     private static createRoom(code: string): void {
         try {
+            if (typeof firebase === "undefined" || typeof firebase.database !== "function") {
+                throw new Error("Firebase SDK not loaded");
+            }
             const playerRef = firebase.database().ref(
                 "rooms/" + code + "/players/" + this._playerId
             );
-            playerRef.set({ slot: 1, joinedAt: Date.now() });
+            playerRef
+                .set({ slot: 1, joinedAt: Date.now() })
+                .catch((err: any) => console.error("[FirebaseManager] set failed:", err));
             playerRef.onDisconnect().remove();
 
             this._state.mySlot = 1;
@@ -118,7 +125,9 @@ export default class FirebaseManager {
 
             this.listenToRoom(code);
         } catch (e) {
+            console.error("[FirebaseManager] createRoom error:", e);
             this._state.status = "error";
+            this._state.errorMsg = String(e);
         }
     }
 
@@ -149,7 +158,9 @@ export default class FirebaseManager {
                     this.listenToRoom(code);
                 });
         } catch (e) {
+            console.error("[FirebaseManager] joinRoom error:", e);
             this._state.status = "error";
+            this._state.errorMsg = String(e);
         }
     }
 
