@@ -11,7 +11,7 @@ export default class Dead extends PlayerState {
     public onEnter(options: Record<string, any>): void {
         const deathAudio = this.owner.getScene().getDeathAudioKey();
         this.emitter.fireEvent(GameEventType.PLAY_SOUND, {key: deathAudio, loop: false, holdReference: false});
-        this.emitter.fireEvent(MBEvents.PLAYER_DEAD);
+        this.emitter.fireEvent(MBEvents.PLAYER_DEAD, { playerNum: this.parent.playerNumber });
     }
 
     // Ignore all events from the rest of the game

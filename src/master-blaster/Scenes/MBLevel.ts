@@ -55,58 +55,68 @@ export default abstract class MBLevel extends Scene {
     protected static readonly MIRROR_PADDING = 10;
     protected static readonly STOCK_COUNT = 3;
     protected static readonly STOCK_ICON_SCALE = 2;
-    protected static readonly STOCK_ICON_START = new Vec2(24, 372);
+    protected static readonly STOCK_ICON_START_P1 = new Vec2(24, 24);
+    protected static readonly STOCK_ICON_START_P2 = new Vec2(1104, 24);
     protected static readonly STOCK_ICON_SPACING = 24;
 
     /** Overrride the factory manager */
     public add: MBFactoryManager;
 
     /** The particle system used for the player's weapon */
-    protected playerWeaponSystem: PlayerWeapon
+    protected playerWeaponSystem!: PlayerWeapon;
+    protected player2WeaponSystem!: PlayerWeapon;
     /** The key for the player's animated sprite */
-    protected playerSpriteKey: string;
-    /** The animated sprite that is the player */
-    protected player: AnimatedSprite;
-    /** The player's spawn position */
-    protected playerSpawn: Vec2;
-    /** The mirror that orbits around the player */
-    protected mirror: Sprite;
+    protected playerSpriteKey!: string;
+    /** The animated sprites for both players */
+    protected player!: AnimatedSprite;
+    protected player2!: AnimatedSprite;
+    /** Spawn positions */
+    protected playerSpawn!: Vec2;
+    protected player2Spawn!: Vec2;
+    /** Arc mirrors orbiting each player */
+    protected mirror!: Sprite;
+    protected mirror2!: Sprite;
     protected mirrorDirection: Vec2 = Vec2.RIGHT;
-    protected stockIcons: Array<Sprite>;
-    protected stocksRemaining: number;
-    protected respawnPosition: Vec2;
+    protected mirror2Direction: Vec2 = Vec2.RIGHT;
+
+    /** Stock/life system */
+    protected stockIcons!: Array<Sprite>;
+    protected stocksRemaining: number = 0;
+    protected stockIcons2!: Array<Sprite>;
+    protected stocksRemaining2: number = 0;
+    protected respawnPosition!: Vec2;
 
     /** The end of level stuff */
 
-    protected levelEndPosition: Vec2;
-    protected levelEndHalfSize: Vec2;
+    protected levelEndPosition!: Vec2;
+    protected levelEndHalfSize!: Vec2;
 
-    protected levelEndArea: Rect;
-    protected nextLevel: new (...args: any) => Scene;
-    protected levelEndTimer: Timer;
-    protected levelEndLabel: Label;
+    protected levelEndArea!: Rect;
+    protected nextLevel!: new (...args: any) => Scene;
+    protected levelEndTimer!: Timer;
+    protected levelEndLabel!: Label;
 
     // Level end transition timer and graphic
-    protected levelTransitionTimer: Timer;
-    protected levelTransitionScreen: Rect;
+    protected levelTransitionTimer!: Timer;
+    protected levelTransitionScreen!: Rect;
 
     /** The keys to the tilemap and different tilemap layers */
-    protected tilemapKey: string;
-    protected destructibleLayerKey: string;
-    protected wallsLayerKey: string;
+    protected tilemapKey!: string;
+    protected destructibleLayerKey!: string;
+    protected wallsLayerKey!: string;
     /** The scale for the tilemap */
-    protected tilemapScale: Vec2;
+    protected tilemapScale!: Vec2;
     /** The destrubtable layer of the tilemap */
-    protected destructable: OrthogonalTilemap;
+    protected destructable!: OrthogonalTilemap;
     /** The wall layer of the tilemap */
-    protected walls: OrthogonalTilemap;
+    protected walls!: OrthogonalTilemap;
 
     /** Sound and music */
-    protected levelMusicKey: string;
+    protected levelMusicKey!: string;
     protected levelMusicVolume: number = 1;
-    protected jumpAudioKey: string;
-    protected tileDestroyedAudioKey: string;
-    protected deathAudioKey: string;
+    protected jumpAudioKey!: string;
+    protected tileDestroyedAudioKey!: string;
+    protected deathAudioKey!: string;
 
     public constructor(viewport: Viewport, sceneManager: SceneManager, renderingManager: RenderingManager, options: Record<string, any>) {
         super(viewport, sceneManager, renderingManager, {...options, physics: {
@@ -125,6 +135,8 @@ export default abstract class MBLevel extends Scene {
         }});
         this.add = new MBFactoryManager(this, this.tilemaps);
         this.stocksRemaining = MBLevel.STOCK_COUNT;
+        this.stocksRemaining2 = MBLevel.STOCK_COUNT;
+
     }
 
     public startScene(): void {
@@ -134,19 +146,24 @@ export default abstract class MBLevel extends Scene {
         // Initialize the tilemaps
         this.initializeTilemap();
 
-        // Initialize the sprite and particle system for the players weapon 
+        // Initialize weapon systems
         this.initializeWeaponSystem();
+        this.initializeWeaponSystem2();
 
         this.initializeUI();
 
-        // Initialize the player 
+        // Initialize players and mirrors
         this.initializePlayer(this.playerSpriteKey);
         this.initializeMirror();
+        if (this.player2Spawn !== undefined) {
+            this.initializePlayer2(this.playerSpriteKey);
+            this.initializeMirror2();
+        }
 
         // Initialize the viewport - this must come after the player has been initialized
         this.initializeViewport();
         this.subscribeToEvents();
-        
+
 
         // Initialize the ends of the levels - must be initialized after the primary layer has been added
         this.initializeLevelEnds();
@@ -173,10 +190,19 @@ export default abstract class MBLevel extends Scene {
     public updateScene(deltaT: number) {
         this.updateMirrorPosition();
         this.playerWeaponSystem.update(deltaT);
-
         for (const projectile of this.playerWeaponSystem.getProjectiles()) {
             if (projectile.active && projectile.sprite.collidedWithTilemap) {
                 this.handleProjectileHit(projectile.sprite.id);
+            }
+        }
+
+        if (this.player2 !== undefined) {
+            this.updateMirror2Position();
+            this.player2WeaponSystem.update(deltaT);
+            for (const projectile of this.player2WeaponSystem.getProjectiles()) {
+                if (projectile.active && projectile.sprite.collidedWithTilemap) {
+                    this.handleProjectileHit(projectile.sprite.id);
+                }
             }
         }
 
@@ -187,7 +213,7 @@ export default abstract class MBLevel extends Scene {
     }
 
     /**
-     * Handle game events. 
+     * Handle game events.
      * @param event the game event
      */
     protected handleEvent(event: GameEvent): void {
@@ -207,7 +233,7 @@ export default abstract class MBLevel extends Scene {
                 break;
             }
             case MBEvents.PLAYER_DEAD: {
-                this.handlePlayerDeath();
+                this.handlePlayerDeath(event.data.get("playerNum") ?? 1);
                 break;
             }
             // Default: Throw an error! No unhandled events allowed.
@@ -241,7 +267,7 @@ export default abstract class MBLevel extends Scene {
 
             let hitDestructible = false;
 
-            // Loop over all possible tiles the projectile could be colliding with 
+            // Loop over all possible tiles the projectile could be colliding with
             for(let col = minIndex.x; col <= maxIndex.x; col++){
                 for(let row = minIndex.y; row <= maxIndex.y; row++){
                     // If the tile is collideable -> check if this projectile is colliding with the tile
@@ -264,12 +290,6 @@ export default abstract class MBLevel extends Scene {
 
     /**
      * Checks if a projectile hit the tile at the (col, row) coordinates in the tilemap.
-     * 
-     * @param tilemap the tilemap
-     * @param projectile the projectile
-     * @param col the column the 
-     * @param row the row 
-     * @returns true of the projectile hit the tile; false otherwise
      */
     protected projectileHitTile(tilemap: OrthogonalTilemap, projectile: Sprite, col: number, row: number): boolean {
         const tileSize = tilemap.getTileSize();
@@ -288,19 +308,35 @@ export default abstract class MBLevel extends Scene {
             this.levelEndLabel.tweens.play("slideIn");
         }
     }
-    protected handlePlayerDeath(): void {
-        this.stocksRemaining -= 1;
-        this.updateStockDisplay();
 
-        if (this.stocksRemaining <= 0) {
-            this.sceneManager.changeToScene(MainMenu);
-            return;
+    /**
+     * Handle a player death — decrement that player's stocks and respawn,
+     * or go to MainMenu if they've run out.
+     */
+    protected handlePlayerDeath(playerNum: 1 | 2 = 1): void {
+        if (playerNum === 2 && this.player2 !== undefined) {
+            this.stocksRemaining2 -= 1;
+            this.updateStockDisplay();
+            if (this.stocksRemaining2 <= 0) {
+                this.sceneManager.changeToScene(MainMenu);
+                return;
+            }
+            const pc = this.player2.ai as PlayerController;
+            const respawnTarget = this.player2Spawn ?? this.playerSpawn;
+            pc.respawn(respawnTarget);
+            this.updateMirror2Position();
+        } else {
+            this.stocksRemaining -= 1;
+            this.updateStockDisplay();
+            if (this.stocksRemaining <= 0) {
+                this.sceneManager.changeToScene(MainMenu);
+                return;
+            }
+            const pc = this.player.ai as PlayerController;
+            const respawnTarget = this.respawnPosition ?? this.playerSpawn;
+            pc.respawn(respawnTarget);
+            this.updateMirrorPosition();
         }
-
-        const playerController = this.player.ai as PlayerController;
-        const respawnTarget = this.respawnPosition ? this.respawnPosition : this.playerSpawn;
-        playerController.respawn(respawnTarget);
-        this.updateMirrorPosition();
         Input.enableInput();
     }
 
@@ -317,8 +353,6 @@ export default abstract class MBLevel extends Scene {
     }
     /**
      * Initializes the tilemaps
-     * @param key the key for the tilemap data
-     * @param scale the scale factor for the tilemap
      */
     protected initializeTilemap(): void {
         if (this.tilemapKey === undefined || this.tilemapScale === undefined) {
@@ -331,7 +365,7 @@ export default abstract class MBLevel extends Scene {
             throw new Error("Make sure the keys for the destuctible layer and wall layer are both set");
         }
 
-        // Get the wall and destructible layers 
+        // Get the wall and destructible layers
         this.walls = this.getTilemap(this.wallsLayerKey) as OrthogonalTilemap;
         this.destructable = this.getTilemap(this.destructibleLayerKey) as OrthogonalTilemap;
 
@@ -414,9 +448,6 @@ export default abstract class MBLevel extends Scene {
             onEnd: MBEvents.LEVEL_START
         });
     }
-    /**
-     * Initializes the particles system used by the player's weapon.
-     */
     protected initializeWeaponSystem(): void {
         this.playerWeaponSystem = new PlayerWeapon();
         this.playerWeaponSystem.initializePool(this, MBLayers.PRIMARY);
@@ -424,9 +455,16 @@ export default abstract class MBLevel extends Scene {
             projectile.sprite.setGroup(MBPhysicsGroups.PLAYER_WEAPON);
         }
     }
+
+    protected initializeWeaponSystem2(): void {
+        this.player2WeaponSystem = new PlayerWeapon();
+        this.player2WeaponSystem.initializePool(this, MBLayers.PRIMARY);
+        for (const projectile of this.player2WeaponSystem.getProjectiles()) {
+            projectile.sprite.setGroup(MBPhysicsGroups.PLAYER_WEAPON);
+        }
+    }
     /**
      * Initializes the player, setting the player's initial position to the given position.
-     * @param position the player's spawn position
      */
     protected initializePlayer(key: string): void {
         if (this.playerWeaponSystem === undefined) {
@@ -443,7 +481,7 @@ export default abstract class MBLevel extends Scene {
         const scaleY = targetSize / this.player.size.y;
         this.player.scale.set(scaleX, scaleY);
         this.player.position.copy(this.playerSpawn);
-        
+
         // Give the player physics
         this.player.addPhysics(new AABB(this.player.position.clone(), this.player.boundary.getHalfSize().clone()));
         this.player.setGroup(MBPhysicsGroups.PLAYER);
@@ -464,21 +502,16 @@ export default abstract class MBLevel extends Scene {
         });
 
         // Give the player it's AI
-        this.player.addAI(PlayerController, { 
-            weaponSystem: this.playerWeaponSystem, 
-            tilemap: "Destructable" 
+        this.player.addAI(PlayerController, {
+            weaponSystem: this.playerWeaponSystem,
+            tilemap: "Destructable"
         });
     }
-    /**
-     * Initializes the viewport
-     */
     protected initializeViewport(): void {
-        if (this.player === undefined) {
-            throw new Error("Player must be initialized before setting the viewport to folow the player");
-        }
-        this.viewport.follow(this.player);
-        this.viewport.setZoomLevel(2);
-        this.viewport.setBounds(0, 0, 512, 512);
+        // Fixed viewport showing the full arena — no camera follow for 2-player same-screen
+        this.viewport.setZoomLevel(1);
+        this.viewport.setBounds(0, 0, 1200, 800);
+        this.viewport.setFocus(new Vec2(256, 256));
     }
 
     protected initializeMirror(): void {
@@ -487,17 +520,35 @@ export default abstract class MBLevel extends Scene {
         this.updateMirrorPosition();
     }
 
-    protected initializeStocks(): void {
-        this.stockIcons = [];
+    protected initializeMirror2(): void {
+        this.mirror2 = this.add.sprite(MBLevel.MIRROR_SPRITE_KEY, MBLayers.PRIMARY);
+        this.mirror2.scale.set(MBLevel.MIRROR_SCALE, MBLevel.MIRROR_SCALE);
+        this.updateMirror2Position();
+    }
 
+    protected initializeStocks(): void {
+        // P1 stocks — top-left
+        this.stockIcons = [];
         for (let i = 0; i < MBLevel.STOCK_COUNT; i++) {
-            const stockIcon = this.add.sprite(MBLevel.STOCK_ICON_KEY, MBLayers.UI);
-            stockIcon.scale.set(MBLevel.STOCK_ICON_SCALE, MBLevel.STOCK_ICON_SCALE);
-            stockIcon.position.copy(new Vec2(
-                MBLevel.STOCK_ICON_START.x + i * MBLevel.STOCK_ICON_SPACING,
-                MBLevel.STOCK_ICON_START.y
+            const icon = this.add.sprite(MBLevel.STOCK_ICON_KEY, MBLayers.UI);
+            icon.scale.set(MBLevel.STOCK_ICON_SCALE, MBLevel.STOCK_ICON_SCALE);
+            icon.position.copy(new Vec2(
+                MBLevel.STOCK_ICON_START_P1.x + i * MBLevel.STOCK_ICON_SPACING,
+                MBLevel.STOCK_ICON_START_P1.y
             ));
-            this.stockIcons.push(stockIcon);
+            this.stockIcons.push(icon);
+        }
+
+        // P2 stocks — top-right (icons go right-to-left so the rightmost is lost first)
+        this.stockIcons2 = [];
+        for (let i = 0; i < MBLevel.STOCK_COUNT; i++) {
+            const icon = this.add.sprite(MBLevel.STOCK_ICON_KEY, MBLayers.UI);
+            icon.scale.set(MBLevel.STOCK_ICON_SCALE, MBLevel.STOCK_ICON_SCALE);
+            icon.position.copy(new Vec2(
+                MBLevel.STOCK_ICON_START_P2.x - i * MBLevel.STOCK_ICON_SPACING,
+                MBLevel.STOCK_ICON_START_P2.y
+            ));
+            this.stockIcons2.push(icon);
         }
 
         this.updateStockDisplay();
@@ -507,22 +558,64 @@ export default abstract class MBLevel extends Scene {
         for (let i = 0; i < this.stockIcons.length; i++) {
             this.stockIcons[i].visible = i < this.stocksRemaining;
         }
+        for (let i = 0; i < this.stockIcons2.length; i++) {
+            this.stockIcons2[i].visible = i < this.stocksRemaining2;
+        }
     }
 
     protected updateMirrorPosition(): void {
-        if (this.player === undefined || this.mirror === undefined) {
-            return;
-        }
-
+        if (this.player === undefined || this.mirror === undefined) return;
         const mousePosition = Input.getGlobalMousePosition();
         const mouseDirection = this.player.position.dirTo(mousePosition);
         if (!mouseDirection.isZero()) {
             this.mirrorDirection = mouseDirection;
         }
-
         const orbitRadius = this.player.boundary.halfSize.x + this.mirror.boundary.halfSize.x + MBLevel.MIRROR_PADDING;
         this.mirror.position.copy(this.player.position.clone().add(this.mirrorDirection.scaled(orbitRadius)));
         this.mirror.rotation = Math.atan2(-this.mirrorDirection.y, this.mirrorDirection.x);
+    }
+
+    protected updateMirror2Position(): void {
+        if (this.player2 === undefined || this.mirror2 === undefined) return;
+        // P2 mirror faces the direction P2 is moving (or last moved)
+        const facing = this.player2.invertX ? -1 : 1;
+        this.mirror2Direction = new Vec2(facing, 0);
+        const orbitRadius = this.player2.boundary.halfSize.x + this.mirror2.boundary.halfSize.x + MBLevel.MIRROR_PADDING;
+        this.mirror2.position.copy(this.player2.position.clone().add(this.mirror2Direction.scaled(orbitRadius)));
+        this.mirror2.rotation = Math.atan2(-this.mirror2Direction.y, this.mirror2Direction.x);
+    }
+
+    protected initializePlayer2(key: string): void {
+        if (this.player2WeaponSystem === undefined) {
+            throw new Error("Player 2 weapon system must be initialized before initializing player 2!");
+        }
+        this.player2 = this.add.animatedSprite(key, MBLayers.PRIMARY);
+        const targetSize = MBLevel.PLAYER_TARGET_FRAME_SIZE;
+        const scaleX = targetSize / this.player2.size.x;
+        const scaleY = targetSize / this.player2.size.y;
+        this.player2.scale.set(scaleX, scaleY);
+        this.player2.position.copy(this.player2Spawn);
+
+        this.player2.addPhysics(new AABB(this.player2.position.clone(), this.player2.boundary.getHalfSize().clone()));
+        this.player2.setGroup(MBPhysicsGroups.PLAYER);
+
+        this.player2.tweens.add(PlayerTweens.FLIP, {
+            startDelay: 0,
+            duration: 300,
+            effects: [{
+                property: TweenableProperties.rotation,
+                resetOnComplete: true,
+                start: 0,
+                end: 2 * Math.PI,
+                ease: EaseFunctionType.IN_OUT_SINE
+            }]
+        });
+
+        this.player2.addAI(PlayerController, {
+            weaponSystem: this.player2WeaponSystem,
+            tilemap: "Destructable",
+            playerNumber: 2,
+        });
     }
     /**
      * Initializes the level end area
@@ -531,12 +624,12 @@ export default abstract class MBLevel extends Scene {
         if (!this.layers.has(MBLayers.PRIMARY)) {
             throw new Error("Can't initialize the level ends until the primary layer has been added to the scene!");
         }
-        
+
         this.levelEndArea = <Rect>this.add.graphic(GraphicType.RECT, MBLayers.PRIMARY, { position: this.levelEndPosition, size: this.levelEndHalfSize });
         this.levelEndArea.addPhysics(undefined, undefined, false, true);
-        this.levelEndArea.setTrigger(MBPhysicsGroups.PLAYER, MBEvents.PLAYER_ENTERED_LEVEL_END, null);
+        this.levelEndArea.setTrigger(MBPhysicsGroups.PLAYER, MBEvents.PLAYER_ENTERED_LEVEL_END, "");
         this.levelEndArea.color = new Color(255, 0, 255, .20);
-        
+
     }
 
     /* Misc methods */
