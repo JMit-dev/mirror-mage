@@ -14,7 +14,8 @@ import PlayerWeapon from "../Player/PlayerWeapon";
  */
 export default class Level2 extends MBLevel {
 
-    public static readonly PLAYER_SPAWN = new Vec2(32, 32);
+    public static readonly PLAYER_SPAWN  = new Vec2(80,  32);
+    public static readonly PLAYER2_SPAWN = new Vec2(432, 32);
     public static readonly PLAYER_SPRITE_KEY = "PLAYER_SPRITE_KEY";
     public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/Hero.json";
 
@@ -48,9 +49,10 @@ export default class Level2 extends MBLevel {
 
         // Set the key for the player's sprite
         this.playerSpriteKey = Level2.PLAYER_SPRITE_KEY;
-        // Set the player's spawn
+        // Set spawn positions
         this.playerSpawn = Level2.PLAYER_SPAWN;
         this.respawnPosition = Level2.PLAYER_SPAWN.clone();
+        this.player2Spawn = Level2.PLAYER2_SPAWN;
 
         // Music and sound
         this.levelMusicKey = Level2.LEVEL_MUSIC_KEY

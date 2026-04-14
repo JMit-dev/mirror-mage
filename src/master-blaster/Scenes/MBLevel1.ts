@@ -17,7 +17,8 @@ import OrthogonalTilemap from "../../Wolfie2D/Nodes/Tilemaps/OrthogonalTilemap";
  */
 export default class Level1 extends MBLevel {
 
-    public static readonly PLAYER_SPAWN = new Vec2(256, 272);
+    public static readonly PLAYER_SPAWN = new Vec2(150, 272);
+    public static readonly PLAYER2_SPAWN = new Vec2(362, 272);
     public static readonly PLAYER_SPRITE_KEY = "PLAYER_SPRITE_KEY";
     public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/Hero.json";
     public static readonly ENEMY_SPRITE_KEY = "LEVEL1_ENEMY_SPRITE";
@@ -51,8 +52,8 @@ export default class Level1 extends MBLevel {
     protected static readonly ENEMY_FIRE_COOLDOWN = 2;
     protected static readonly ENEMY_SPELL_SPAWN_OFFSET = new Vec2(-20, 0);
 
-    protected enemy: Sprite;
-    protected enemySpell: Sprite;
+    protected enemy!: Sprite;
+    protected enemySpell!: Sprite;
     protected enemySpellActive: boolean = false;
     protected enemySpellLifetimeRemaining: number = 0;
     protected enemyFireCooldownRemaining: number = 0;
@@ -68,9 +69,10 @@ export default class Level1 extends MBLevel {
 
         // Set the key for the player's sprite
         this.playerSpriteKey = Level1.PLAYER_SPRITE_KEY;
-        // Set the player's spawn
+        // Set spawn positions
         this.playerSpawn = Level1.PLAYER_SPAWN;
         this.respawnPosition = new Vec2(256, 144);
+        this.player2Spawn = Level1.PLAYER2_SPAWN;
 
         // Music and sound
         this.levelMusicKey = Level1.LEVEL_MUSIC_KEY
@@ -131,18 +133,6 @@ export default class Level1 extends MBLevel {
     public updateScene(deltaT: number): void {
         super.updateScene(deltaT);
         this.updateEnemy(deltaT);
-    }
-
-    /**
-     * I had to override this method to adjust the viewport for the first level. I screwed up 
-     * when I was making the tilemap for the first level is what it boils down to.
-     * 
-     */
-    protected initializeViewport(): void {
-        this.viewport.setZoomLevel(2);
-        this.viewport.setBounds(0, 0, 512, 512);
-        this.viewport.setCenter(256, 256);
-        this.viewport.setFocus(new Vec2(256, 256));
     }
 
     protected initializeEnemy(): void {
