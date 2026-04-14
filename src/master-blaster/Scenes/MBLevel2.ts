@@ -50,6 +50,7 @@ export default class Level2 extends MBLevel {
         this.playerSpriteKey = Level2.PLAYER_SPRITE_KEY;
         // Set the player's spawn
         this.playerSpawn = Level2.PLAYER_SPAWN;
+        this.respawnPosition = Level2.PLAYER_SPAWN.clone();
 
         // Music and sound
         this.levelMusicKey = Level2.LEVEL_MUSIC_KEY
@@ -73,6 +74,7 @@ export default class Level2 extends MBLevel {
         this.load.spritesheet(this.playerSpriteKey, Level2.PLAYER_SPRITE_PATH);
         this.load.image(PlayerWeapon.PROJECTILE_SPRITE_KEY, PlayerWeapon.PROJECTILE_SPRITE_PATH);
         this.load.image(MBLevel.MIRROR_SPRITE_KEY, MBLevel.MIRROR_SPRITE_PATH);
+        this.load.image(MBLevel.STOCK_ICON_KEY, MBLevel.STOCK_ICON_PATH);
         // Level2-specific music
         this.load.audio(this.levelMusicKey, Level2.LEVEL_MUSIC_PATH);
         this.load.audio(this.jumpAudioKey, Level2.JUMP_AUDIO_PATH);
@@ -85,6 +87,7 @@ export default class Level2 extends MBLevel {
         this.load.keepSpritesheet(this.playerSpriteKey);
         this.load.keepImage(PlayerWeapon.PROJECTILE_SPRITE_KEY);
         this.load.keepImage(MBLevel.MIRROR_SPRITE_KEY);
+        this.load.keepImage(MBLevel.STOCK_ICON_KEY);
         this.load.keepAudio(this.jumpAudioKey);
         this.load.keepAudio(this.tileDestroyedAudioKey);
         this.load.keepAudio(this.deathAudioKey);

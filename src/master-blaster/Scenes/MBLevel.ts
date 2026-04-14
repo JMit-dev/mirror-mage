@@ -49,8 +49,14 @@ export default abstract class MBLevel extends Scene {
     protected static readonly PLAYER_TARGET_FRAME_SIZE = 32;
     public static readonly MIRROR_SPRITE_KEY = "PLAYER_MIRROR";
     public static readonly MIRROR_SPRITE_PATH = "game_assets/spritesheets/mirror temp.png";
+    public static readonly STOCK_ICON_KEY = "STOCK_ICON";
+    public static readonly STOCK_ICON_PATH = "game_assets/ui/stock-icon.svg";
     protected static readonly MIRROR_SCALE = 2;
     protected static readonly MIRROR_PADDING = 10;
+    protected static readonly STOCK_COUNT = 3;
+    protected static readonly STOCK_ICON_SCALE = 2;
+    protected static readonly STOCK_ICON_START = new Vec2(24, 372);
+    protected static readonly STOCK_ICON_SPACING = 24;
 
     /** Overrride the factory manager */
     public add: MBFactoryManager;
@@ -66,11 +72,9 @@ export default abstract class MBLevel extends Scene {
     /** The mirror that orbits around the player */
     protected mirror: Sprite;
     protected mirrorDirection: Vec2 = Vec2.RIGHT;
-
-    private healthLabel: Label;
-	private healthBar: Label;
-	private healthBarBg: Label;
-
+    protected stockIcons: Array<Sprite>;
+    protected stocksRemaining: number;
+    protected respawnPosition: Vec2;
 
     /** The end of level stuff */
 
@@ -120,6 +124,7 @@ export default abstract class MBLevel extends Scene {
             ]
         }});
         this.add = new MBFactoryManager(this, this.tilemaps);
+        this.stocksRemaining = MBLevel.STOCK_COUNT;
     }
 
     public startScene(): void {
@@ -201,12 +206,8 @@ export default abstract class MBLevel extends Scene {
                 this.sceneManager.changeToScene(this.nextLevel);
                 break;
             }
-            case MBEvents.HEALTH_CHANGE: {
-                this.handleHealthChange(event.data.get("curhp"), event.data.get("maxhp"));
-                break;
-            }
             case MBEvents.PLAYER_DEAD: {
-                this.sceneManager.changeToScene(MainMenu);
+                this.handlePlayerDeath();
                 break;
             }
             // Default: Throw an error! No unhandled events allowed.
@@ -287,21 +288,21 @@ export default abstract class MBLevel extends Scene {
             this.levelEndLabel.tweens.play("slideIn");
         }
     }
-    /**
-     * This is the same healthbar found in The Yellow Submarine. I've adapted it slightly to account for the zoom factor. Other than that, the
-     * code is basically the same.
-     * 
-     * @param currentHealth the current health of the player
-     * @param maxHealth the maximum health of the player
-     */
-    protected handleHealthChange(currentHealth: number, maxHealth: number): void {
-		let unit = this.healthBarBg.size.x / maxHealth;
-        
-		this.healthBar.size.set(this.healthBarBg.size.x - unit * (maxHealth - currentHealth), this.healthBarBg.size.y);
-		this.healthBar.position.set(this.healthBarBg.position.x - (unit / 2 / this.getViewScale()) * (maxHealth - currentHealth), this.healthBarBg.position.y);
+    protected handlePlayerDeath(): void {
+        this.stocksRemaining -= 1;
+        this.updateStockDisplay();
 
-		this.healthBar.backgroundColor = currentHealth < maxHealth * 1/4 ? Color.RED: currentHealth < maxHealth * 3/4 ? Color.YELLOW : Color.GREEN;
-	}
+        if (this.stocksRemaining <= 0) {
+            this.sceneManager.changeToScene(MainMenu);
+            return;
+        }
+
+        const playerController = this.player.ai as PlayerController;
+        const respawnTarget = this.respawnPosition ? this.respawnPosition : this.playerSpawn;
+        playerController.respawn(respawnTarget);
+        this.updateMirrorPosition();
+        Input.enableInput();
+    }
 
     /* Initialization methods for everything in the scene */
 
@@ -346,29 +347,13 @@ export default abstract class MBLevel extends Scene {
         this.receiver.subscribe(MBEvents.PLAYER_ENTERED_LEVEL_END);
         this.receiver.subscribe(MBEvents.LEVEL_START);
         this.receiver.subscribe(MBEvents.LEVEL_END);
-        this.receiver.subscribe(MBEvents.HEALTH_CHANGE);
         this.receiver.subscribe(MBEvents.PLAYER_DEAD);
     }
     /**
      * Adds in any necessary UI to the game
      */
     protected initializeUI(): void {
-
-        // HP Label
-		this.healthLabel = <Label>this.add.uiElement(UIElementType.LABEL, MBLayers.UI, {position: new Vec2(205, 20), text: "HP "});
-		this.healthLabel.size.set(300, 30);
-		this.healthLabel.fontSize = 24;
-		this.healthLabel.font = "Courier";
-
-        // HealthBar
-		this.healthBar = <Label>this.add.uiElement(UIElementType.LABEL, MBLayers.UI, {position: new Vec2(250, 20), text: ""});
-		this.healthBar.size = new Vec2(300, 25);
-		this.healthBar.backgroundColor = Color.GREEN;
-
-        // HealthBar Border
-		this.healthBarBg = <Label>this.add.uiElement(UIElementType.LABEL, MBLayers.UI, {position: new Vec2(250, 20), text: ""});
-		this.healthBarBg.size = new Vec2(300, 25);
-		this.healthBarBg.borderColor = Color.BLACK;
+        this.initializeStocks();
 
         // End of level label (start off screen)
         this.levelEndLabel = <Label>this.add.uiElement(UIElementType.LABEL, MBLayers.UI, { position: new Vec2(-300, 100), text: "Level Complete" });
@@ -500,6 +485,28 @@ export default abstract class MBLevel extends Scene {
         this.mirror = this.add.sprite(MBLevel.MIRROR_SPRITE_KEY, MBLayers.PRIMARY);
         this.mirror.scale.set(MBLevel.MIRROR_SCALE, MBLevel.MIRROR_SCALE);
         this.updateMirrorPosition();
+    }
+
+    protected initializeStocks(): void {
+        this.stockIcons = [];
+
+        for (let i = 0; i < MBLevel.STOCK_COUNT; i++) {
+            const stockIcon = this.add.sprite(MBLevel.STOCK_ICON_KEY, MBLayers.UI);
+            stockIcon.scale.set(MBLevel.STOCK_ICON_SCALE, MBLevel.STOCK_ICON_SCALE);
+            stockIcon.position.copy(new Vec2(
+                MBLevel.STOCK_ICON_START.x + i * MBLevel.STOCK_ICON_SPACING,
+                MBLevel.STOCK_ICON_START.y
+            ));
+            this.stockIcons.push(stockIcon);
+        }
+
+        this.updateStockDisplay();
+    }
+
+    protected updateStockDisplay(): void {
+        for (let i = 0; i < this.stockIcons.length; i++) {
+            this.stockIcons[i].visible = i < this.stocksRemaining;
+        }
     }
 
     protected updateMirrorPosition(): void {

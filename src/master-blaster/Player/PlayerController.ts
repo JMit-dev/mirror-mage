@@ -83,8 +83,8 @@ export default class PlayerController extends StateMachineAI {
         this.velocity = Vec2.ZERO;
         this.isDead = false;
 
-        this.maxHealth = 5;
-        this.health = 5;
+        this.maxHealth = 1;
+        this.health = 1;
 
         // Add the different states the player can be in to the PlayerController 
 		this.addState(PlayerStates.IDLE, new Idle(this, this.owner));
@@ -148,5 +148,15 @@ export default class PlayerController extends StateMachineAI {
             this.isDead = true;
             this.changeState(PlayerStates.DEAD);
         }
+    }
+
+    public respawn(position: Vec2): void {
+        this.isDead = false;
+        this.velocity = Vec2.ZERO;
+        this.owner.position.copy(position);
+        this.owner.rotation = 0;
+        this.owner.animation.stop();
+        this.health = this.maxHealth;
+        this.changeState(PlayerStates.IDLE);
     }
 }
