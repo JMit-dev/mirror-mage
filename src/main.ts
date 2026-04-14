@@ -10,10 +10,14 @@ import { MBControls } from "./master-blaster/MBControls";
         canvasSize: {x: 1200, y: 800},          // The size of the game
         clearColor: {r: 34, g: 32, b: 52},   // The color the game clears to
         inputs: [
-            {name: MBControls.MOVE_LEFT, keys: ["a"]},
-            {name: MBControls.MOVE_RIGHT, keys: ["d"]},
-            {name: MBControls.JUMP, keys: ["w", "space"]},
-            {name: MBControls.ATTACK, keys: ["x"]}
+            {name: MBControls.MOVE_LEFT,     keys: ["a"]},
+            {name: MBControls.MOVE_RIGHT,    keys: ["d"]},
+            {name: MBControls.JUMP,          keys: ["w", "space"]},
+            {name: MBControls.ATTACK,        keys: ["x"]},
+            {name: MBControls.P2_MOVE_LEFT,  keys: ["arrowleft"]},
+            {name: MBControls.P2_MOVE_RIGHT, keys: ["arrowright"]},
+            {name: MBControls.P2_JUMP,       keys: ["arrowup"]},
+            {name: MBControls.P2_ATTACK,     keys: ["enter"]},
         ],
         useWebGL: false,                        // Tell the game we want to use webgl
         showDebug: false                       // Whether to show debug messages. You can change this to true if you want
