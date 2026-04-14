@@ -51,12 +51,15 @@ export default class Level1 extends MBLevel {
     protected static readonly ENEMY_SPELL_LIFETIME = 4;
     protected static readonly ENEMY_FIRE_COOLDOWN = 2;
     protected static readonly ENEMY_SPELL_SPAWN_OFFSET = new Vec2(-20, 0);
+    protected static readonly ENEMY_SPELL_BOUNCE_COOLDOWN = 0.15;
 
     protected enemy!: Sprite;
     protected enemySpell!: Sprite;
     protected enemySpellActive: boolean = false;
     protected enemySpellLifetimeRemaining: number = 0;
     protected enemyFireCooldownRemaining: number = 0;
+    protected enemySpellDirection: Vec2 = Vec2.LEFT;
+    protected enemySpellBounceCooldownRemaining: number = 0;
 
     public constructor(viewport: Viewport, sceneManager: SceneManager, renderingManager: RenderingManager, options: Record<string, any>) {
         super(viewport, sceneManager, renderingManager, options);
@@ -148,6 +151,7 @@ export default class Level1 extends MBLevel {
 
     protected updateEnemy(deltaT: number): void {
         this.enemyFireCooldownRemaining = Math.max(0, this.enemyFireCooldownRemaining - deltaT);
+        this.enemySpellBounceCooldownRemaining = Math.max(0, this.enemySpellBounceCooldownRemaining - deltaT);
 
         if (!this.enemySpellActive && this.enemyFireCooldownRemaining === 0) {
             this.fireEnemySpell();
@@ -158,7 +162,11 @@ export default class Level1 extends MBLevel {
         }
 
         this.enemySpellLifetimeRemaining -= deltaT;
-        this.enemySpell.position.add(Vec2.LEFT.scaled(Level1.ENEMY_SPELL_SPEED * deltaT));
+        this.enemySpell.position.add(this.enemySpellDirection.scaled(Level1.ENEMY_SPELL_SPEED * deltaT));
+
+        if (this.enemySpellBounceCooldownRemaining === 0 && this.enemySpellHitMirror()) {
+            this.bounceEnemySpellOffMirror();
+        }
 
         if (this.enemySpellLifetimeRemaining <= 0 || this.enemySpellHitTile(this.walls) || this.enemySpellHitTile(this.destructable)) {
             this.deactivateEnemySpell();
@@ -176,7 +184,10 @@ export default class Level1 extends MBLevel {
         this.enemySpellActive = true;
         this.enemySpellLifetimeRemaining = Level1.ENEMY_SPELL_LIFETIME;
         this.enemyFireCooldownRemaining = Level1.ENEMY_FIRE_COOLDOWN;
+        this.enemySpellDirection = Vec2.LEFT;
+        this.enemySpellBounceCooldownRemaining = 0;
         this.enemySpell.visible = true;
+        this.enemySpell.invertX = true;
         this.enemySpell.position.copy(this.enemy.position.clone().add(Level1.ENEMY_SPELL_SPAWN_OFFSET));
     }
 
@@ -184,6 +195,23 @@ export default class Level1 extends MBLevel {
         this.enemySpellActive = false;
         this.enemySpellLifetimeRemaining = 0;
         this.enemySpell.visible = false;
+        this.enemySpellBounceCooldownRemaining = 0;
+    }
+
+    protected enemySpellHitMirror(): boolean {
+        if (this.enemySpell.boundary.overlapArea(this.mirror.boundary) > 0) {
+            return true;
+        }
+
+        return this.player2 !== undefined && this.enemySpell.boundary.overlapArea(this.mirror2.boundary) > 0;
+    }
+
+    protected bounceEnemySpellOffMirror(): void {
+        const bounceDirection = this.enemySpell.position.x < this.enemy.position.x ? Vec2.RIGHT : Vec2.LEFT;
+        this.enemySpellDirection = bounceDirection;
+        this.enemySpell.invertX = bounceDirection.x < 0;
+        this.enemySpellBounceCooldownRemaining = Level1.ENEMY_SPELL_BOUNCE_COOLDOWN;
+        this.enemySpell.position.add(bounceDirection.scaled(this.enemySpell.boundary.halfSize.x + 2));
     }
 
     protected enemySpellHitTile(tilemap: OrthogonalTilemap): boolean {
