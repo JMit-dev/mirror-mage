@@ -22,7 +22,7 @@ export default class Walk extends PlayerState {
 			this.finished(PlayerStates.IDLE);
 		} 
         // If the player hits the jump key - transition to the Jump state
-        else if (Input.isJustPressed(MBControls.JUMP)) {
+        else if (this.parent.jumpJustPressed) {
             this.owner.tweens.play(PlayerTweens.FLIP);
             this.finished(PlayerStates.JUMP);
         } 

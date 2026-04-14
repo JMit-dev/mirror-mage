@@ -30,7 +30,7 @@ export default class Idle extends PlayerState {
 			this.finished(PlayerStates.WALK);
 		} 
         // If the player is jumping, transition to the jumping state
-        else if (Input.isJustPressed(MBControls.JUMP)) {
+        else if (this.parent.jumpJustPressed) {
             this.finished(PlayerStates.JUMP);
         }
         // If the player is not on the ground, transition to the falling state
