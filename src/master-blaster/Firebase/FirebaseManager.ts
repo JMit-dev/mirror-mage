@@ -15,6 +15,8 @@ export interface RoomState {
     status: "waiting" | "full" | "unavailable" | "error";
     joinUrl: string;
     errorMsg: string;
+    started: boolean;
+    selectedLevel: string;
 }
 
 export default class FirebaseManager {
@@ -25,6 +27,8 @@ export default class FirebaseManager {
         status: "waiting",
         joinUrl: "",
         errorMsg: "",
+        started: false,
+        selectedLevel: "",
     };
 
     private static _playerId: string = "";
@@ -62,7 +66,8 @@ export default class FirebaseManager {
     // -------------------------------------------------------------------------
 
     private static createRoom(code: string): void {
-        this.putPlayer(code, 1)
+        this.initializeRoomMeta(code)
+            .then(() => this.putPlayer(code, 1))
             .then(() => {
                 this._state.mySlot = 1;
                 this.startPolling(code);
@@ -101,6 +106,39 @@ export default class FirebaseManager {
         });
     }
 
+    private static initializeRoomMeta(code: string): Promise<void> {
+        return fetch(DB_BASE + "/rooms/" + code + "/meta.json", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ started: false, selectedLevel: "" }),
+        }).then((r) => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+        });
+    }
+
+    public static startGame(): Promise<void> {
+        return this.patchRoomMeta({ started: true });
+    }
+
+    public static selectLevel(level: string): Promise<void> {
+        return this.patchRoomMeta({ selectedLevel: level });
+    }
+
+    private static patchRoomMeta(meta: Record<string, unknown>): Promise<void> {
+        const code = this._state.roomCode;
+        if (!code) {
+            return Promise.reject(new Error("No room code"));
+        }
+
+        return fetch(DB_BASE + "/rooms/" + code + "/meta.json", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(meta),
+        }).then((r) => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+        });
+    }
+
     private static removePlayer(): void {
         const code = this._state.roomCode;
         if (!code || !this._playerId) return;
@@ -117,19 +155,22 @@ export default class FirebaseManager {
 
     private static startPolling(code: string): void {
         // Immediately fetch once, then every 2 seconds
-        this.fetchPlayerCount(code);
-        this._pollHandle = setInterval(() => this.fetchPlayerCount(code), 2000);
+        this.fetchRoomState(code);
+        this._pollHandle = setInterval(() => this.fetchRoomState(code), 2000);
     }
 
-    private static fetchPlayerCount(code: string): void {
-        fetch(DB_BASE + "/rooms/" + code + "/players.json")
+    private static fetchRoomState(code: string): void {
+        fetch(DB_BASE + "/rooms/" + code + ".json")
             .then((r) => r.json())
-            .then((players) => {
+            .then((room) => {
+                const players = room?.players;
                 const count = players ? Object.keys(players).length : 0;
                 this._state.playerCount = count;
                 if (this._state.status !== "unavailable") {
                     this._state.status = count >= 2 ? "full" : "waiting";
                 }
+                this._state.started = room?.meta?.started === true;
+                this._state.selectedLevel = typeof room?.meta?.selectedLevel === "string" ? room.meta.selectedLevel : "";
             })
             .catch((e) => console.warn("[FirebaseManager] poll error:", e));
     }

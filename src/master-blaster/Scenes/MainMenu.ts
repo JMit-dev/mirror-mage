@@ -5,6 +5,7 @@ import Label from "../../Wolfie2D/Nodes/UIElements/Label";
 import { UIElementType } from "../../Wolfie2D/Nodes/UIElements/UIElementTypes";
 import Scene from "../../Wolfie2D/Scene/Scene";
 import Color from "../../Wolfie2D/Utils/Color";
+import FirebaseManager from "../Firebase/FirebaseManager";
 import Level1 from "./MBLevel1";
 import Level2 from "./MBLevel2";
 
@@ -15,6 +16,7 @@ export const MenuLayers = {
 } as const;
 
 export default class MainMenu extends Scene {
+    private levelLaunchRequested: boolean = false;
 
     public startScene(): void {
         Input.enableInput();
@@ -41,13 +43,34 @@ export default class MainMenu extends Scene {
 
         const level1Button = this.createLevelButton(new Vec2(size.x, size.y), "Level 1");
         level1Button.onClick = () => {
-            this.sceneManager.changeToScene(Level1);
+            if (FirebaseManager.state.mySlot === 1 && !this.levelLaunchRequested) {
+                this.levelLaunchRequested = true;
+                FirebaseManager.selectLevel("level1").catch(() => {
+                    this.levelLaunchRequested = false;
+                });
+            }
         };
 
         const level2Button = this.createLevelButton(new Vec2(size.x, size.y + 90), "Level 2");
         level2Button.onClick = () => {
-            this.sceneManager.changeToScene(Level2);
+            if (FirebaseManager.state.mySlot === 1 && !this.levelLaunchRequested) {
+                this.levelLaunchRequested = true;
+                FirebaseManager.selectLevel("level2").catch(() => {
+                    this.levelLaunchRequested = false;
+                });
+            }
         };
+    }
+
+    public updateScene(): void {
+        switch (FirebaseManager.state.selectedLevel) {
+            case "level1":
+                this.sceneManager.changeToScene(Level1);
+                break;
+            case "level2":
+                this.sceneManager.changeToScene(Level2);
+                break;
+        }
     }
 
     protected createLevelButton(position: Vec2, text: string): Button {

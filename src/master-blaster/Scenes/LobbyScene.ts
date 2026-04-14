@@ -17,6 +17,7 @@ export default class LobbyScene extends Scene {
     private slot1Label!: Label;
     private slot2Label!: Label;
     private statusLabel!: Label;
+    private startRequested: boolean = false;
 
     public startScene(): void {
         FirebaseManager.initialize();
@@ -153,8 +154,11 @@ export default class LobbyScene extends Scene {
             if (s.mySlot === 1) {
                 this.statusLabel.text = "Press SPACE to start!";
                 this.statusLabel.textColor = new Color(80, 220, 80);
-                if (Input.isJustPressed(MBControls.JUMP)) {
-                    this.sceneManager.changeToScene(MainMenu);
+                if (!this.startRequested && Input.isJustPressed(MBControls.JUMP)) {
+                    this.startRequested = true;
+                    FirebaseManager.startGame().catch(() => {
+                        this.startRequested = false;
+                    });
                 }
             } else {
                 this.statusLabel.text = "Waiting for host to start...";
@@ -163,6 +167,10 @@ export default class LobbyScene extends Scene {
         } else {
             this.statusLabel.text = "Waiting for players...";
             this.statusLabel.textColor = new Color(140, 140, 140);
+        }
+
+        if (s.started) {
+            this.sceneManager.changeToScene(MainMenu);
         }
     }
 }
