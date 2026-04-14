@@ -17,6 +17,15 @@ export interface RoomState {
     errorMsg: string;
     started: boolean;
     selectedLevel: string;
+    runtimePlayers: Partial<Record<1 | 2, RuntimePlayerState>>;
+}
+
+export interface RuntimePlayerState {
+    x: number;
+    y: number;
+    invertX: boolean;
+    rotation: number;
+    updatedAt: number;
 }
 
 export default class FirebaseManager {
@@ -29,6 +38,7 @@ export default class FirebaseManager {
         errorMsg: "",
         started: false,
         selectedLevel: "",
+        runtimePlayers: {},
     };
 
     private static _playerId: string = "";
@@ -76,8 +86,7 @@ export default class FirebaseManager {
     }
 
     private static joinRoom(code: string): void {
-        fetch(DB_BASE + "/rooms/" + code + "/players.json")
-            .then((r) => r.json())
+        this.fetchJson("/rooms/" + code + "/players.json")
             .then((players) => {
                 const count = players ? Object.keys(players).length : 0;
                 if (count >= 2) {
@@ -124,6 +133,28 @@ export default class FirebaseManager {
         return this.patchRoomMeta({ selectedLevel: level });
     }
 
+    public static publishPlayerState(slot: 1 | 2, state: RuntimePlayerState): Promise<void> {
+        const code = this._state.roomCode;
+        if (!code || !this._playerId) {
+            return Promise.reject(new Error("No room code"));
+        }
+
+        return fetch(DB_BASE + "/rooms/" + code + "/players/" + this._playerId + ".json", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                slot,
+                x: state.x,
+                y: state.y,
+                invertX: state.invertX,
+                rotation: state.rotation,
+                updatedAt: state.updatedAt
+            }),
+        }).then((r) => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+        });
+    }
+
     private static patchRoomMeta(meta: Record<string, unknown>): Promise<void> {
         const code = this._state.roomCode;
         if (!code) {
@@ -154,14 +185,13 @@ export default class FirebaseManager {
     // -------------------------------------------------------------------------
 
     private static startPolling(code: string): void {
-        // Immediately fetch once, then every 2 seconds
+        // Immediately fetch once, then poll frequently enough for scene transitions to feel instant.
         this.fetchRoomState(code);
-        this._pollHandle = setInterval(() => this.fetchRoomState(code), 2000);
+        this._pollHandle = setInterval(() => this.fetchRoomState(code), 500);
     }
 
     private static fetchRoomState(code: string): void {
-        fetch(DB_BASE + "/rooms/" + code + ".json")
-            .then((r) => r.json())
+        this.fetchJson("/rooms/" + code + ".json")
             .then((room) => {
                 const players = room?.players;
                 const count = players ? Object.keys(players).length : 0;
@@ -171,8 +201,35 @@ export default class FirebaseManager {
                 }
                 this._state.started = room?.meta?.started === true;
                 this._state.selectedLevel = typeof room?.meta?.selectedLevel === "string" ? room.meta.selectedLevel : "";
+                const runtimePlayers: Partial<Record<1 | 2, RuntimePlayerState>> = {};
+                if (players) {
+                    for (const key in players) {
+                        const value = players[key];
+                        if (value?.slot === 1 || value?.slot === 2) {
+                            runtimePlayers[value.slot] = {
+                                x: Number(value.x ?? 0),
+                                y: Number(value.y ?? 0),
+                                invertX: Boolean(value.invertX),
+                                rotation: Number(value.rotation ?? 0),
+                                updatedAt: Number(value.updatedAt ?? 0),
+                            };
+                        }
+                    }
+                }
+                this._state.runtimePlayers = runtimePlayers;
             })
             .catch((e) => console.warn("[FirebaseManager] poll error:", e));
+    }
+
+    private static fetchJson(path: string): Promise<any> {
+        const separator = path.includes("?") ? "&" : "?";
+        return fetch(DB_BASE + path + separator + "t=" + Date.now(), {
+            cache: "no-store",
+            headers: { "Cache-Control": "no-cache" }
+        }).then((r) => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+        });
     }
 
     // -------------------------------------------------------------------------

@@ -15,6 +15,7 @@ import MBAnimatedSprite from "../Nodes/MBAnimatedSprite";
 import MathUtils from "../../Wolfie2D/Utils/MathUtils";
 import { MBEvents } from "../MBEvents";
 import Dead from "./PlayerStates/Dead";
+import FirebaseManager from "../Firebase/FirebaseManager";
 
 /**
  * Animation keys for the player spritesheet
@@ -71,11 +72,13 @@ export default class PlayerController extends StateMachineAI {
     protected weapon: PlayerWeapon;
     protected _isDead: boolean;
     protected _playerNumber: 1 | 2 = 1;
+    protected _isLocalPlayer: boolean = true;
 
     public initializeAI(owner: MBAnimatedSprite, options: Record<string, any>){
         this.owner = owner;
 
         this._playerNumber = options.playerNumber === 2 ? 2 : 1;
+        this._isLocalPlayer = options.isLocalPlayer ?? (FirebaseManager.state.mySlot === 0 ? true : FirebaseManager.state.mySlot === this._playerNumber);
         this.weapon = options.weaponSystem;
 
         this.tilemap = this.owner.getScene().getTilemap(options.tilemap) as OrthogonalTilemap;
@@ -102,24 +105,28 @@ export default class PlayerController extends StateMachineAI {
      */
     public get inputDir(): Vec2 {
         let direction = Vec2.ZERO;
-        if (this._playerNumber === 2) {
-            direction.x = (Input.isPressed(MBControls.P2_MOVE_LEFT) ? -1 : 0) + (Input.isPressed(MBControls.P2_MOVE_RIGHT) ? 1 : 0);
-            direction.y = (Input.isJustPressed(MBControls.P2_JUMP) ? -1 : 0);
-        } else {
+        if (this._isLocalPlayer) {
             direction.x = (Input.isPressed(MBControls.MOVE_LEFT) ? -1 : 0) + (Input.isPressed(MBControls.MOVE_RIGHT) ? 1 : 0);
             direction.y = (Input.isJustPressed(MBControls.JUMP) ? -1 : 0);
+        } else if (FirebaseManager.state.mySlot === 0 && this._playerNumber === 2) {
+            direction.x = (Input.isPressed(MBControls.P2_MOVE_LEFT) ? -1 : 0) + (Input.isPressed(MBControls.P2_MOVE_RIGHT) ? 1 : 0);
+            direction.y = (Input.isJustPressed(MBControls.P2_JUMP) ? -1 : 0);
         }
         return direction;
     }
 
     /** Returns true the frame the jump key was first pressed for this player */
     public get jumpJustPressed(): boolean {
-        return this._playerNumber === 2
+        if (this._isLocalPlayer) {
+            return Input.isJustPressed(MBControls.JUMP);
+        }
+        return FirebaseManager.state.mySlot === 0 && this._playerNumber === 2
             ? Input.isJustPressed(MBControls.P2_JUMP)
-            : Input.isJustPressed(MBControls.JUMP);
+            : false;
     }
 
     public get playerNumber(): 1 | 2 { return this._playerNumber; }
+    public get isLocalPlayer(): boolean { return this._isLocalPlayer; }
 
     public update(deltaT: number): void {
         super.update(deltaT);
@@ -128,9 +135,11 @@ export default class PlayerController extends StateMachineAI {
             return;
         }
 
-        const fired = this._playerNumber === 2
-            ? Input.isJustPressed(MBControls.P2_ATTACK) && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX)
-            : Input.isMouseJustPressed(0) && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX);
+        const fired = this._isLocalPlayer
+            ? (Input.isMouseJustPressed(0) || Input.isJustPressed(MBControls.ATTACK)) && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX)
+            : FirebaseManager.state.mySlot === 0 && this._playerNumber === 2
+                ? Input.isJustPressed(MBControls.P2_ATTACK) && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX)
+                : false;
 
         if (fired) {
             this.owner.animation.play(PlayerAnimations.ATTACK, false);

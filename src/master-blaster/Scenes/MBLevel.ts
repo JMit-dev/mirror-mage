@@ -17,7 +17,7 @@ import Viewport from "../../Wolfie2D/SceneGraph/Viewport";
 import Timer from "../../Wolfie2D/Timing/Timer";
 import Color from "../../Wolfie2D/Utils/Color";
 import { EaseFunctionType } from "../../Wolfie2D/Utils/EaseFunctions";
-import PlayerController, { PlayerTweens } from "../Player/PlayerController";
+import PlayerController, { PlayerAnimations, PlayerTweens } from "../Player/PlayerController";
 import PlayerWeapon from "../Player/PlayerWeapon";
 
 import { MBEvents } from "../MBEvents";
@@ -26,6 +26,7 @@ import MBFactoryManager from "../Factory/MBFactoryManager";
 import MainMenu from "./MainMenu";
 import AudioManager, { AudioChannelType } from "../../Wolfie2D/Sound/AudioManager";
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
+import FirebaseManager, { RuntimePlayerState } from "../Firebase/FirebaseManager";
 
 /**
  * A const object for the layer names
@@ -85,6 +86,9 @@ export default abstract class MBLevel extends Scene {
     protected stockIcons2!: Array<Sprite>;
     protected stocksRemaining2: number = 0;
     protected respawnPosition!: Vec2;
+    protected networkPublishCooldown: number = 0;
+    protected lastRemotePlayer1Position: Vec2;
+    protected lastRemotePlayer2Position: Vec2;
 
     /** The end of level stuff */
 
@@ -136,7 +140,8 @@ export default abstract class MBLevel extends Scene {
         this.add = new MBFactoryManager(this, this.tilemaps);
         this.stocksRemaining = MBLevel.STOCK_COUNT;
         this.stocksRemaining2 = MBLevel.STOCK_COUNT;
-
+        this.lastRemotePlayer1Position = Vec2.ZERO;
+        this.lastRemotePlayer2Position = Vec2.ZERO;
     }
 
     public startScene(): void {
@@ -205,6 +210,8 @@ export default abstract class MBLevel extends Scene {
                 }
             }
         }
+
+        this.syncMultiplayerState(deltaT);
 
         // Handle all game events
         while (this.receiver.hasNextEvent()) {
@@ -504,8 +511,12 @@ export default abstract class MBLevel extends Scene {
         // Give the player it's AI
         this.player.addAI(PlayerController, {
             weaponSystem: this.playerWeaponSystem,
-            tilemap: "Destructable"
+            tilemap: "Destructable",
+            isLocalPlayer: FirebaseManager.state.mySlot === 0 || FirebaseManager.state.mySlot === 1
         });
+        if (!(this.player.ai as PlayerController).isLocalPlayer) {
+            this.player.setAIActive(false, {});
+        }
     }
     protected initializeViewport(): void {
         // Fixed viewport showing the full arena — no camera follow for 2-player same-screen
@@ -565,10 +576,15 @@ export default abstract class MBLevel extends Scene {
 
     protected updateMirrorPosition(): void {
         if (this.player === undefined || this.mirror === undefined) return;
-        const mousePosition = Input.getGlobalMousePosition();
-        const mouseDirection = this.player.position.dirTo(mousePosition);
-        if (!mouseDirection.isZero()) {
-            this.mirrorDirection = mouseDirection;
+        const playerController = this.player.ai as PlayerController;
+        if (playerController.isLocalPlayer) {
+            const mousePosition = Input.getGlobalMousePosition();
+            const mouseDirection = this.player.position.dirTo(mousePosition);
+            if (!mouseDirection.isZero()) {
+                this.mirrorDirection = mouseDirection;
+            }
+        } else {
+            this.mirrorDirection = new Vec2(this.player.invertX ? -1 : 1, 0);
         }
         const orbitRadius = this.player.boundary.halfSize.x + this.mirror.boundary.halfSize.x + MBLevel.MIRROR_PADDING;
         this.mirror.position.copy(this.player.position.clone().add(this.mirrorDirection.scaled(orbitRadius)));
@@ -615,7 +631,75 @@ export default abstract class MBLevel extends Scene {
             weaponSystem: this.player2WeaponSystem,
             tilemap: "Destructable",
             playerNumber: 2,
+            isLocalPlayer: FirebaseManager.state.mySlot === 2,
         });
+        if (!(this.player2.ai as PlayerController).isLocalPlayer) {
+            this.player2.setAIActive(false, {});
+        }
+    }
+
+    protected syncMultiplayerState(deltaT: number): void {
+        if (FirebaseManager.state.mySlot === 0) {
+            return;
+        }
+
+        this.networkPublishCooldown = Math.max(0, this.networkPublishCooldown - deltaT);
+        if (this.networkPublishCooldown === 0) {
+            this.publishLocalPlayerStates();
+            this.networkPublishCooldown = 0.05;
+        }
+
+        this.applyRemotePlayerState(1, this.player, this.lastRemotePlayer1Position);
+        if (this.player2 !== undefined) {
+            this.applyRemotePlayerState(2, this.player2, this.lastRemotePlayer2Position);
+        }
+    }
+
+    protected publishLocalPlayerStates(): void {
+        const player1Controller = this.player.ai as PlayerController;
+        if (player1Controller.isLocalPlayer) {
+            FirebaseManager.publishPlayerState(1, this.makeRuntimePlayerState(this.player)).catch(() => {});
+        }
+
+        if (this.player2 !== undefined) {
+            const player2Controller = this.player2.ai as PlayerController;
+            if (player2Controller.isLocalPlayer) {
+                FirebaseManager.publishPlayerState(2, this.makeRuntimePlayerState(this.player2)).catch(() => {});
+            }
+        }
+    }
+
+    protected makeRuntimePlayerState(player: AnimatedSprite): RuntimePlayerState {
+        return {
+            x: player.position.x,
+            y: player.position.y,
+            invertX: player.invertX,
+            rotation: player.rotation,
+            updatedAt: Date.now()
+        };
+    }
+
+    protected applyRemotePlayerState(slot: 1 | 2, player: AnimatedSprite, lastPosition: Vec2): void {
+        const controller = player.ai as PlayerController;
+        if (controller.isLocalPlayer) {
+            return;
+        }
+
+        const runtimeState = FirebaseManager.state.runtimePlayers[slot];
+        if (!runtimeState) {
+            return;
+        }
+
+        const newPosition = new Vec2(runtimeState.x, runtimeState.y);
+        const dx = newPosition.x - lastPosition.x;
+        const dy = newPosition.y - lastPosition.y;
+        const moved = dx * dx + dy * dy > 1;
+
+        player.position.copy(newPosition);
+        player.invertX = runtimeState.invertX;
+        player.rotation = runtimeState.rotation;
+        player.animation.playIfNotAlready(moved ? PlayerAnimations.WALK : PlayerAnimations.IDLE);
+        lastPosition.copy(newPosition);
     }
     /**
      * Initializes the level end area
