@@ -68,14 +68,14 @@ export default class PlayerController extends StateMachineAI {
 	protected _speed: number;
 
     protected tilemap: OrthogonalTilemap;
-    // protected cannon: Sprite;
     protected weapon: PlayerWeapon;
     protected _isDead: boolean;
+    protected _playerNumber: 1 | 2 = 1;
 
-    
     public initializeAI(owner: MBAnimatedSprite, options: Record<string, any>){
         this.owner = owner;
 
+        this._playerNumber = options.playerNumber === 2 ? 2 : 1;
         this.weapon = options.weaponSystem;
 
         this.tilemap = this.owner.getScene().getTilemap(options.tilemap) as OrthogonalTilemap;
@@ -97,30 +97,45 @@ export default class PlayerController extends StateMachineAI {
         this.initialize(PlayerStates.IDLE);
     }
 
-    /** 
-	 * Get the inputs from the keyboard, or Vec2.Zero if nothing is being pressed
-	 */
+    /**
+     * Get the inputs from the keyboard, or Vec2.Zero if nothing is being pressed
+     */
     public get inputDir(): Vec2 {
         let direction = Vec2.ZERO;
-		direction.x = (Input.isPressed(MBControls.MOVE_LEFT) ? -1 : 0) + (Input.isPressed(MBControls.MOVE_RIGHT) ? 1 : 0);
-		direction.y = (Input.isJustPressed(MBControls.JUMP) ? -1 : 0);
-		return direction;
+        if (this._playerNumber === 2) {
+            direction.x = (Input.isPressed(MBControls.P2_MOVE_LEFT) ? -1 : 0) + (Input.isPressed(MBControls.P2_MOVE_RIGHT) ? 1 : 0);
+            direction.y = (Input.isJustPressed(MBControls.P2_JUMP) ? -1 : 0);
+        } else {
+            direction.x = (Input.isPressed(MBControls.MOVE_LEFT) ? -1 : 0) + (Input.isPressed(MBControls.MOVE_RIGHT) ? 1 : 0);
+            direction.y = (Input.isJustPressed(MBControls.JUMP) ? -1 : 0);
+        }
+        return direction;
     }
+
+    /** Returns true the frame the jump key was first pressed for this player */
+    public get jumpJustPressed(): boolean {
+        return this._playerNumber === 2
+            ? Input.isJustPressed(MBControls.P2_JUMP)
+            : Input.isJustPressed(MBControls.JUMP);
+    }
+
+    public get playerNumber(): 1 | 2 { return this._playerNumber; }
+
     public update(deltaT: number): void {
-		super.update(deltaT);
+        super.update(deltaT);
 
         if (this.isDead) {
             return;
         }
 
-        if (Input.isMouseJustPressed(0)) {
-            const fired = this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX);
-            if (fired) {
-                this.owner.animation.play(PlayerAnimations.ATTACK, false);
-            }
-        }
+        const fired = this._playerNumber === 2
+            ? Input.isJustPressed(MBControls.P2_ATTACK) && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX)
+            : Input.isMouseJustPressed(0) && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX);
 
-	}
+        if (fired) {
+            this.owner.animation.play(PlayerAnimations.ATTACK, false);
+        }
+    }
 
     public get velocity(): Vec2 { return this._velocity; }
     public set velocity(velocity: Vec2) { this._velocity = velocity; }
@@ -132,17 +147,15 @@ export default class PlayerController extends StateMachineAI {
     public set isDead(isDead: boolean) { this._isDead = isDead; }
 
     public get maxHealth(): number { return this._maxHealth; }
-    public set maxHealth(maxHealth: number) { 
-        this._maxHealth = maxHealth; 
-        // When the health changes, fire an event up to the scene.
-        this.emitter.fireEvent(MBEvents.HEALTH_CHANGE, {curhp: this.health, maxhp: this.maxHealth});
+    public set maxHealth(maxHealth: number) {
+        this._maxHealth = maxHealth;
+        this.emitter.fireEvent(MBEvents.HEALTH_CHANGE, {curhp: this.health, maxhp: this.maxHealth, playerNum: this._playerNumber});
     }
 
     public get health(): number { return this._health; }
-    public set health(health: number) { 
+    public set health(health: number) {
         this._health = MathUtils.clamp(health, 0, this.maxHealth);
-        // When the health changes, fire an event up to the scene.
-        this.emitter.fireEvent(MBEvents.HEALTH_CHANGE, {curhp: this.health, maxhp: this.maxHealth});
+        this.emitter.fireEvent(MBEvents.HEALTH_CHANGE, {curhp: this.health, maxhp: this.maxHealth, playerNum: this._playerNumber});
         // If the health hit 0, change the state of the player
         if (this.health === 0 && !this.isDead) {
             this.isDead = true;
