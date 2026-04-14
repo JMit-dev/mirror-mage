@@ -14,8 +14,8 @@ import PlayerWeapon from "../Player/PlayerWeapon";
  */
 export default class Level2 extends MBLevel {
 
-    public static readonly PLAYER_SPAWN  = new Vec2(80,  32);
-    public static readonly PLAYER2_SPAWN = new Vec2(432, 32);
+    public static readonly PLAYER_SPAWN  = new Vec2(96, 480);
+    public static readonly PLAYER2_SPAWN = new Vec2(416, 480);
     public static readonly PLAYER_SPRITE_KEY = "PLAYER_SPRITE_KEY";
     public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/Hero.json";
 
@@ -98,6 +98,22 @@ export default class Level2 extends MBLevel {
     public startScene(): void {
         super.startScene();
         this.nextLevel = MainMenu;
+    }
+
+    protected initializeUI(): void {
+        super.initializeUI();
+        this.levelEndLabel.visible = false;
+    }
+
+    protected initializeViewport(): void {
+        this.viewport.setZoomLevel(2);
+        this.viewport.setBounds(0, 0, 512, 512);
+        this.viewport.setCenter(256, 256);
+        this.viewport.setFocus(new Vec2(256, 256));
+    }
+
+    protected initializeLevelEnds(): void {
+        // Level 2 is an arena, so it has no level-complete trigger.
     }
 
 }
