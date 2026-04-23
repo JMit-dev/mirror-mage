@@ -1,6 +1,13 @@
 # Master Baster
 This project demonstrates how to make an side scrolling type of game with simple collision detection and gravity where a player can jump and land on platforms. It also uses tiled background rendering and we can manipulate the background tiles dynamically. The game also uses a primitive particle system for its attack and even has sound and music. The game uses Wolfie2D, a game engine created by Richard McKenna to teach how game engines are constructed for CSE 380 (2D Game Programming) at Stony Brook University with lots and lots of design and implementation from Joe Weaver. Further help was given by Zachary Grandison, Peter Walsh, Andrew Ojeda, and Kevin Cai, all undergraduate students at Stony Brook University.
 
+## TODO
+1. Finish the multiplayer net code
+2. Add new music and design level layout for level 1 grass, level 2 ice castle, level 3 fire arena, and the title screen
+3. Add fire, ice, and lightning spells
+4. Add mirror reflection and damage
+5. New character player art
+
 ## Introduction
 In making this simple platformer game, using the Typescript programming language and the Wolfie2D game engine, one should continue to learn how all the pieces fit together and specifically develop an understanding of:
 * How to work with the Wolfie2D physics system
