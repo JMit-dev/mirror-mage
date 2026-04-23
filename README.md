@@ -7,6 +7,7 @@ This project demonstrates how to make an side scrolling type of game with simple
 3. Add fire, ice, and lightning spells
 4. Add mirror reflection and damage
 5. New character player art
+6. Add a test flag to play levels singleplayer for testing
 
 ## Introduction
 In making this simple platformer game, using the Typescript programming language and the Wolfie2D game engine, one should continue to learn how all the pieces fit together and specifically develop an understanding of:

@@ -11,11 +11,17 @@ import PlayerWeapon from "../Player/PlayerWeapon";
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import PlayerController from "../Player/PlayerController";
 import OrthogonalTilemap from "../../Wolfie2D/Nodes/Tilemaps/OrthogonalTilemap";
+import { GraphicType } from "../../Wolfie2D/Nodes/Graphics/GraphicTypes";
+import Color from "../../Wolfie2D/Utils/Color";
 
 /**
  * The first level for Master Blaster - should be the one with the grass and the clouds.
  */
 export default class Level1 extends MBLevel {
+
+    protected static readonly SKY_LAYER_KEY = "Level1Sky";
+    protected static readonly GROUND_BACKGROUND_LAYER_KEY = "Level1GroundBackground";
+    protected static readonly LEVEL_CENTER = new Vec2(256, 256);
 
     public static readonly PLAYER_SPAWN = new Vec2(150, 272);
     public static readonly PLAYER2_SPAWN = new Vec2(362, 272);
@@ -126,7 +132,11 @@ export default class Level1 extends MBLevel {
     }
 
     public startScene(): void {
+        this.addLayer(Level1.SKY_LAYER_KEY, -10);
+        this.addLayer(Level1.GROUND_BACKGROUND_LAYER_KEY, -9);
         super.startScene();
+        this.initializeSkyBackground();
+        this.initializeGroundBackground();
         this.levelEndArea.visible = false;
         this.initializeEnemy();
         // Set the next level to be Level2
@@ -147,6 +157,39 @@ export default class Level1 extends MBLevel {
         this.enemySpell = this.add.sprite(Level1.ENEMY_SPELL_SPRITE_KEY, MBLayers.PRIMARY);
         this.enemySpell.scale.set(Level1.ENEMY_SPELL_SCALE, Level1.ENEMY_SPELL_SCALE);
         this.enemySpell.visible = false;
+    }
+
+    protected initializeViewport(): void {
+        this.viewport.setZoomLevel(1);
+
+        const viewportHalfSize = this.viewport.getHalfSize();
+        this.viewport.setBounds(
+            Level1.LEVEL_CENTER.x - viewportHalfSize.x,
+            Level1.LEVEL_CENTER.y - viewportHalfSize.y,
+            Level1.LEVEL_CENTER.x + viewportHalfSize.x,
+            Level1.LEVEL_CENTER.y + viewportHalfSize.y
+        );
+        this.viewport.setFocus(Level1.LEVEL_CENTER);
+    }
+
+    protected initializeSkyBackground(): void {
+        const viewportHalfSize = this.viewport.getHalfSize();
+        const sky = this.add.graphic(GraphicType.RECT, Level1.SKY_LAYER_KEY, {
+            position: Level1.LEVEL_CENTER.clone(),
+            size: viewportHalfSize.scaled(2)
+        });
+
+        sky.color = new Color(91, 190, 255);
+    }
+
+    protected initializeGroundBackground(): void {
+        const viewportHalfSize = this.viewport.getHalfSize();
+        const groundBackground = this.add.graphic(GraphicType.RECT, Level1.GROUND_BACKGROUND_LAYER_KEY, {
+            position: new Vec2(Level1.LEVEL_CENTER.x, Level1.LEVEL_CENTER.y + viewportHalfSize.y / 2),
+            size: new Vec2(viewportHalfSize.x * 2, viewportHalfSize.y)
+        });
+
+        groundBackground.color = new Color(28, 96, 43);
     }
 
     protected updateEnemy(deltaT: number): void {

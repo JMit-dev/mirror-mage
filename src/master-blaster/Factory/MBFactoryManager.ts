@@ -29,7 +29,7 @@ export default class MBFactoryManager extends FactoryManager {
         return super.uiElement(type, layerName, options);
     }
 
-    public graphic(type: string, layerName: MBLayer, options?: Record<string, any>): Graphic {
+    public graphic(type: string, layerName: string, options?: Record<string, any>): Graphic {
         return super.graphic(type, layerName, options);
     }
 
