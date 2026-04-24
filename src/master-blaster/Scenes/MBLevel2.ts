@@ -13,9 +13,10 @@ import PlayerWeapon from "../Player/PlayerWeapon";
  * The second level for the Master Blaster. It should be the goose dungeon / cave.
  */
 export default class Level2 extends MBLevel {
+    protected static readonly LEVEL_CENTER = new Vec2(256, 256);
 
-    public static readonly PLAYER_SPAWN  = new Vec2(96, 480);
-    public static readonly PLAYER2_SPAWN = new Vec2(416, 480);
+    public static readonly PLAYER_SPAWN  = new Vec2(144, 320);
+    public static readonly PLAYER2_SPAWN = new Vec2(368, 320);
     public static readonly PLAYER_SPRITE_KEY = "PLAYER_SPRITE_KEY";
     public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/Hero.json";
 
@@ -107,9 +108,14 @@ export default class Level2 extends MBLevel {
 
     protected initializeViewport(): void {
         this.viewport.setZoomLevel(2);
-        this.viewport.setBounds(0, 0, 512, 512);
-        this.viewport.setCenter(256, 256);
-        this.viewport.setFocus(new Vec2(256, 256));
+        const viewportHalfSize = this.viewport.getHalfSize();
+        this.viewport.setBounds(
+            Level2.LEVEL_CENTER.x - viewportHalfSize.x,
+            Level2.LEVEL_CENTER.y - viewportHalfSize.y,
+            Level2.LEVEL_CENTER.x + viewportHalfSize.x,
+            Level2.LEVEL_CENTER.y + viewportHalfSize.y
+        );
+        this.viewport.setFocus(Level2.LEVEL_CENTER);
     }
 
     protected initializeLevelEnds(): void {
