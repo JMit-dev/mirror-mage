@@ -8,6 +8,7 @@ import Color from "../../Wolfie2D/Utils/Color";
 import FirebaseManager from "../Firebase/FirebaseManager";
 import Level1 from "./MBLevel1";
 import Level2 from "./MBLevel2";
+import { isDevTestingMode } from "../config/RuntimeMode";
 
 
 // Layers for the main menu scene
@@ -17,6 +18,7 @@ export const MenuLayers = {
 
 export default class MainMenu extends Scene {
     private levelLaunchRequested: boolean = false;
+    private readonly devTestingMode: boolean = isDevTestingMode();
 
     public startScene(): void {
         Input.enableInput();
@@ -41,9 +43,20 @@ export default class MainMenu extends Scene {
         subtitle.backgroundColor = Color.TRANSPARENT;
         subtitle.borderColor = Color.TRANSPARENT;
 
+        if (this.devTestingMode) {
+            const devLabel = <Label>this.add.uiElement(UIElementType.LABEL, MenuLayers.MAIN, {position: new Vec2(size.x, size.y - 70), text: "DEV TESTING MODE: solo map launch"});
+            devLabel.font = "PixelSimple";
+            devLabel.fontSize = 20;
+            devLabel.textColor = new Color(255, 215, 0);
+            devLabel.backgroundColor = Color.TRANSPARENT;
+            devLabel.borderColor = Color.TRANSPARENT;
+        }
+
         const level1Button = this.createLevelButton(new Vec2(size.x, size.y), "Level 1");
         level1Button.onClick = () => {
-            if (FirebaseManager.state.mySlot === 1 && !this.levelLaunchRequested) {
+            if (this.devTestingMode) {
+                this.sceneManager.changeToScene(Level1);
+            } else if (FirebaseManager.state.mySlot === 1 && !this.levelLaunchRequested) {
                 this.levelLaunchRequested = true;
                 FirebaseManager.selectLevel("level1").catch(() => {
                     this.levelLaunchRequested = false;
@@ -53,7 +66,9 @@ export default class MainMenu extends Scene {
 
         const level2Button = this.createLevelButton(new Vec2(size.x, size.y + 90), "Level 2");
         level2Button.onClick = () => {
-            if (FirebaseManager.state.mySlot === 1 && !this.levelLaunchRequested) {
+            if (this.devTestingMode) {
+                this.sceneManager.changeToScene(Level2);
+            } else if (FirebaseManager.state.mySlot === 1 && !this.levelLaunchRequested) {
                 this.levelLaunchRequested = true;
                 FirebaseManager.selectLevel("level2").catch(() => {
                     this.levelLaunchRequested = false;
@@ -63,6 +78,10 @@ export default class MainMenu extends Scene {
     }
 
     public updateScene(): void {
+        if (this.devTestingMode) {
+            return;
+        }
+
         switch (FirebaseManager.state.selectedLevel) {
             case "level1":
                 this.sceneManager.changeToScene(Level1);

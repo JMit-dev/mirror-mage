@@ -1,6 +1,8 @@
 import Game from "./Wolfie2D/Loop/Game";
 import LobbyScene from "./master-blaster/Scenes/LobbyScene";
 import { MBControls } from "./master-blaster/MBControls";
+import MainMenu from "./master-blaster/Scenes/MainMenu";
+import { isDevTestingMode } from "./master-blaster/config/RuntimeMode";
 
 // The main function is your entrypoint into Wolfie2D. Specify your first scene and any options here.
 (function main(){
@@ -27,5 +29,5 @@ import { MBControls } from "./master-blaster/MBControls";
     const game = new Game(options);
 
     // Start our game
-    game.start(LobbyScene, {});
+    game.start(isDevTestingMode() ? MainMenu : LobbyScene, {});
 })();

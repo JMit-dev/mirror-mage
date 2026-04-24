@@ -27,6 +27,7 @@ import MainMenu from "./MainMenu";
 import AudioManager, { AudioChannelType } from "../../Wolfie2D/Sound/AudioManager";
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import FirebaseManager, { RuntimePlayerState } from "../Firebase/FirebaseManager";
+import { isDevTestingMode } from "../config/RuntimeMode";
 
 /**
  * A const object for the layer names
@@ -89,6 +90,7 @@ export default abstract class MBLevel extends Scene {
     protected networkPublishCooldown: number = 0;
     protected lastRemotePlayer1Position: Vec2;
     protected lastRemotePlayer2Position: Vec2;
+    protected readonly devTestingMode: boolean;
 
     /** The end of level stuff */
 
@@ -142,6 +144,7 @@ export default abstract class MBLevel extends Scene {
         this.stocksRemaining2 = MBLevel.STOCK_COUNT;
         this.lastRemotePlayer1Position = Vec2.ZERO;
         this.lastRemotePlayer2Position = Vec2.ZERO;
+        this.devTestingMode = isDevTestingMode();
     }
 
     public startScene(): void {
@@ -160,7 +163,7 @@ export default abstract class MBLevel extends Scene {
         // Initialize players and mirrors
         this.initializePlayer(this.playerSpriteKey);
         this.initializeMirror();
-        if (this.player2Spawn !== undefined) {
+        if (!this.devTestingMode && this.player2Spawn !== undefined) {
             this.initializePlayer2(this.playerSpriteKey);
             this.initializeMirror2();
         }
@@ -552,6 +555,10 @@ export default abstract class MBLevel extends Scene {
 
         // P2 stocks — top-right (icons go right-to-left so the rightmost is lost first)
         this.stockIcons2 = [];
+        if (this.devTestingMode) {
+            return;
+        }
+
         for (let i = 0; i < MBLevel.STOCK_COUNT; i++) {
             const icon = this.add.sprite(MBLevel.STOCK_ICON_KEY, MBLayers.UI);
             icon.scale.set(MBLevel.STOCK_ICON_SCALE, MBLevel.STOCK_ICON_SCALE);
@@ -639,7 +646,7 @@ export default abstract class MBLevel extends Scene {
     }
 
     protected syncMultiplayerState(deltaT: number): void {
-        if (FirebaseManager.state.mySlot === 0) {
+        if (this.devTestingMode || FirebaseManager.state.mySlot === 0) {
             return;
         }
 
