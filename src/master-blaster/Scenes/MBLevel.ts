@@ -314,6 +314,7 @@ export default abstract class MBLevel extends Scene {
     protected handleEnteredLevelEnd(): void {
         // If the timer hasn't run yet, start the end level animation
         if (!this.levelEndTimer.hasRun() && this.levelEndTimer.isStopped()) {
+            this.levelEndLabel.visible = true;
             this.levelEndTimer.start();
             this.levelEndLabel.tweens.play("slideIn");
         }
@@ -407,6 +408,7 @@ export default abstract class MBLevel extends Scene {
         this.levelEndLabel.textColor = Color.WHITE;
         this.levelEndLabel.fontSize = 48;
         this.levelEndLabel.font = "PixelSimple";
+        this.levelEndLabel.visible = false;
 
         // Add a tween to move the label on screen
         this.levelEndLabel.tweens.add("slideIn", {

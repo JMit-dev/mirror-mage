@@ -23,8 +23,8 @@ export default class Level1 extends MBLevel {
     protected static readonly GROUND_BACKGROUND_LAYER_KEY = "Level1GroundBackground";
     protected static readonly LEVEL_CENTER = new Vec2(256, 256);
 
-    public static readonly PLAYER_SPAWN = new Vec2(150, 272);
-    public static readonly PLAYER2_SPAWN = new Vec2(362, 272);
+    public static readonly PLAYER_SPAWN = new Vec2(118, 272);
+    public static readonly PLAYER2_SPAWN = new Vec2(394, 272);
     public static readonly PLAYER_SPRITE_KEY = "PLAYER_SPRITE_KEY";
     public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/Hero.json";
     public static readonly ENEMY_SPRITE_KEY = "LEVEL1_ENEMY_SPRITE";
@@ -50,7 +50,7 @@ export default class Level1 extends MBLevel {
     public static readonly DEATH_AUDIO_PATH = "game_assets/sounds/death.wav";
 
     public static readonly LEVEL_END = new AABB(new Vec2(224, 232), new Vec2(24, 16));
-    protected static readonly ENEMY_POSITION = new Vec2(472, 272);
+    protected static readonly ENEMY_POSITION = new Vec2(456, 272);
     protected static readonly ENEMY_SCALE = 4;
     protected static readonly ENEMY_SPELL_SCALE = 2;
     protected static readonly ENEMY_SPELL_SPEED = 120;
@@ -91,7 +91,7 @@ export default class Level1 extends MBLevel {
         this.deathAudioKey = Level1.DEATH_AUDIO_KEY;
 
         // Level end size and position
-        this.levelEndPosition = new Vec2(128, 232).mult(this.tilemapScale);
+        this.levelEndPosition = new Vec2(96, 232).mult(this.tilemapScale);
         this.levelEndHalfSize = new Vec2(32, 32).mult(this.tilemapScale);
     }
 
