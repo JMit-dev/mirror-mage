@@ -240,8 +240,11 @@ export default class Level1 extends MBLevel {
         this.enemySpellLifetimeRemaining -= deltaT;
         this.enemySpell.position.add(this.enemySpellDirection.scaled(Level1.ENEMY_SPELL_SPEED * deltaT));
 
-        if (this.enemySpellBounceCooldownRemaining === 0 && this.enemySpellHitMirror()) {
-            this.bounceEnemySpellOffMirror();
+        if (this.enemySpellBounceCooldownRemaining === 0) {
+            const hitMirrorPlayer = this.getMirrorHitPlayer(this.enemySpell);
+            if (hitMirrorPlayer !== null && this.damageMirror(hitMirrorPlayer)) {
+                this.bounceEnemySpellOffMirror();
+            }
         }
 
         if (this.enemySpellLifetimeRemaining <= 0 || this.enemySpellHitTile(this.walls) || this.enemySpellHitTile(this.destructable)) {
@@ -272,14 +275,6 @@ export default class Level1 extends MBLevel {
         this.enemySpellLifetimeRemaining = 0;
         this.enemySpell.visible = false;
         this.enemySpellBounceCooldownRemaining = 0;
-    }
-
-    protected enemySpellHitMirror(): boolean {
-        if (this.enemySpell.boundary.overlapArea(this.mirror.boundary) > 0) {
-            return true;
-        }
-
-        return this.player2 !== undefined && this.enemySpell.boundary.overlapArea(this.mirror2.boundary) > 0;
     }
 
     protected bounceEnemySpellOffMirror(): void {

@@ -28,6 +28,7 @@ import AudioManager, { AudioChannelType } from "../../Wolfie2D/Sound/AudioManage
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import FirebaseManager, { RuntimePlayerState } from "../Firebase/FirebaseManager";
 import { isDevTestingMode } from "../config/RuntimeMode";
+import { consumeMirrorDurability, getHitMirrorOwner } from "../Spells/MirrorSpellUtils";
 
 /**
  * A const object for the layer names
@@ -55,6 +56,7 @@ export default abstract class MBLevel extends Scene {
     public static readonly STOCK_ICON_PATH = "game_assets/ui/stock-icon.svg";
     protected static readonly MIRROR_SCALE = 2;
     protected static readonly MIRROR_PADDING = 10;
+    protected static readonly MIRROR_HITS_TO_BREAK = 3;
     protected static readonly STOCK_COUNT = 3;
     protected static readonly STOCK_ICON_SCALE = 2;
     protected static readonly STOCK_ICON_START_P1 = new Vec2(24, 24);
@@ -80,6 +82,8 @@ export default abstract class MBLevel extends Scene {
     protected mirror2!: Sprite;
     protected mirrorDirection: Vec2 = Vec2.RIGHT;
     protected mirror2Direction: Vec2 = Vec2.RIGHT;
+    protected mirrorHitsRemaining: number = MBLevel.MIRROR_HITS_TO_BREAK;
+    protected mirror2HitsRemaining: number = MBLevel.MIRROR_HITS_TO_BREAK;
 
     /** Stock/life system */
     protected stockIcons!: Array<Sprite>;
@@ -198,20 +202,12 @@ export default abstract class MBLevel extends Scene {
     public updateScene(deltaT: number) {
         this.updateMirrorPosition();
         this.playerWeaponSystem.update(deltaT);
-        for (const projectile of this.playerWeaponSystem.getProjectiles()) {
-            if (projectile.active && projectile.sprite.collidedWithTilemap) {
-                this.handleProjectileHit(projectile.sprite.id);
-            }
-        }
+        this.updateWeaponProjectiles(this.playerWeaponSystem, 1);
 
         if (this.player2 !== undefined) {
             this.updateMirror2Position();
             this.player2WeaponSystem.update(deltaT);
-            for (const projectile of this.player2WeaponSystem.getProjectiles()) {
-                if (projectile.active && projectile.sprite.collidedWithTilemap) {
-                    this.handleProjectileHit(projectile.sprite.id);
-                }
-            }
+            this.updateWeaponProjectiles(this.player2WeaponSystem, 2);
         }
 
         this.syncMultiplayerState(deltaT);
@@ -259,8 +255,27 @@ export default abstract class MBLevel extends Scene {
      * Handle projectile hit events
      * @param projectileId the id of the projectile
      */
-    protected handleProjectileHit(projectileId: number): void {
-        let projectiles = this.playerWeaponSystem.getProjectiles();
+    protected updateWeaponProjectiles(weaponSystem: PlayerWeapon, ownerPlayerNum: 1 | 2): void {
+        for (const projectile of weaponSystem.getProjectiles()) {
+            if (!projectile.active) {
+                continue;
+            }
+
+            const hitMirrorPlayer = this.getMirrorHitPlayer(projectile.sprite, ownerPlayerNum);
+            if (hitMirrorPlayer !== null) {
+                this.damageMirror(hitMirrorPlayer);
+                weaponSystem.deactivateById(projectile.sprite.id);
+                continue;
+            }
+
+            if (projectile.sprite.collidedWithTilemap) {
+                this.handleProjectileHit(weaponSystem, projectile.sprite.id);
+            }
+        }
+    }
+
+    protected handleProjectileHit(weaponSystem: PlayerWeapon, projectileId: number): void {
+        let projectiles = weaponSystem.getProjectiles();
 
         let projectile = projectiles.find(projectile => projectile.sprite.id === projectileId);
         if (projectile !== undefined) {
@@ -294,7 +309,7 @@ export default abstract class MBLevel extends Scene {
                 }
             }
 
-            this.playerWeaponSystem.deactivateById(projectileId);
+            weaponSystem.deactivateById(projectileId);
         }
     }
 
@@ -335,6 +350,7 @@ export default abstract class MBLevel extends Scene {
             const pc = this.player2.ai as PlayerController;
             const respawnTarget = this.player2Spawn ?? this.playerSpawn;
             pc.respawn(respawnTarget);
+            this.restoreMirror(2);
             this.updateMirror2Position();
         } else {
             this.stocksRemaining -= 1;
@@ -346,6 +362,7 @@ export default abstract class MBLevel extends Scene {
             const pc = this.player.ai as PlayerController;
             const respawnTarget = this.respawnPosition ?? this.playerSpawn;
             pc.respawn(respawnTarget);
+            this.restoreMirror(1);
             this.updateMirrorPosition();
         }
         Input.enableInput();
@@ -533,12 +550,14 @@ export default abstract class MBLevel extends Scene {
     protected initializeMirror(): void {
         this.mirror = this.add.sprite(MBLevel.MIRROR_SPRITE_KEY, MBLayers.PRIMARY);
         this.mirror.scale.set(MBLevel.MIRROR_SCALE, MBLevel.MIRROR_SCALE);
+        this.restoreMirror(1);
         this.updateMirrorPosition();
     }
 
     protected initializeMirror2(): void {
         this.mirror2 = this.add.sprite(MBLevel.MIRROR_SPRITE_KEY, MBLayers.PRIMARY);
         this.mirror2.scale.set(MBLevel.MIRROR_SCALE, MBLevel.MIRROR_SCALE);
+        this.restoreMirror(2);
         this.updateMirror2Position();
     }
 
@@ -585,6 +604,12 @@ export default abstract class MBLevel extends Scene {
 
     protected updateMirrorPosition(): void {
         if (this.player === undefined || this.mirror === undefined) return;
+        if (!this.isMirrorActive(1)) {
+            this.mirror.visible = false;
+            return;
+        }
+
+        this.mirror.visible = true;
         const playerController = this.player.ai as PlayerController;
         if (playerController.isLocalPlayer) {
             const mousePosition = Input.getGlobalMousePosition();
@@ -602,12 +627,73 @@ export default abstract class MBLevel extends Scene {
 
     protected updateMirror2Position(): void {
         if (this.player2 === undefined || this.mirror2 === undefined) return;
+        if (!this.isMirrorActive(2)) {
+            this.mirror2.visible = false;
+            return;
+        }
+
+        this.mirror2.visible = true;
         // P2 mirror faces the direction P2 is moving (or last moved)
         const facing = this.player2.invertX ? -1 : 1;
         this.mirror2Direction = new Vec2(facing, 0);
         const orbitRadius = this.player2.boundary.halfSize.x + this.mirror2.boundary.halfSize.x + MBLevel.MIRROR_PADDING;
         this.mirror2.position.copy(this.player2.position.clone().add(this.mirror2Direction.scaled(orbitRadius)));
         this.mirror2.rotation = Math.atan2(-this.mirror2Direction.y, this.mirror2Direction.x);
+    }
+
+    protected isMirrorActive(playerNum: 1 | 2): boolean {
+        return playerNum === 1
+            ? this.mirrorHitsRemaining > 0
+            : this.mirror2HitsRemaining > 0;
+    }
+
+    protected getMirrorHitPlayer(spell: Sprite, excludedPlayerNum?: 1 | 2): 1 | 2 | null {
+        return getHitMirrorOwner(spell, [
+            {
+                playerNum: 1,
+                mirror: excludedPlayerNum === 1 ? undefined : this.mirror,
+                active: excludedPlayerNum !== 1 && this.isMirrorActive(1)
+            },
+            {
+                playerNum: 2,
+                mirror: excludedPlayerNum === 2 ? undefined : this.mirror2,
+                active: this.player2 !== undefined && excludedPlayerNum !== 2 && this.isMirrorActive(2)
+            }
+        ]);
+    }
+
+    protected damageMirror(playerNum: 1 | 2): boolean {
+        if (!this.isMirrorActive(playerNum)) {
+            return false;
+        }
+
+        if (playerNum === 1) {
+            this.mirrorHitsRemaining = consumeMirrorDurability(this.mirrorHitsRemaining);
+            if (this.mirrorHitsRemaining <= 0 && this.mirror !== undefined) {
+                this.mirror.visible = false;
+            }
+        } else {
+            this.mirror2HitsRemaining = consumeMirrorDurability(this.mirror2HitsRemaining);
+            if (this.mirror2HitsRemaining <= 0 && this.mirror2 !== undefined) {
+                this.mirror2.visible = false;
+            }
+        }
+
+        return this.isMirrorActive(playerNum);
+    }
+
+    protected restoreMirror(playerNum: 1 | 2): void {
+        if (playerNum === 1) {
+            this.mirrorHitsRemaining = MBLevel.MIRROR_HITS_TO_BREAK;
+            if (this.mirror !== undefined) {
+                this.mirror.visible = true;
+            }
+        } else {
+            this.mirror2HitsRemaining = MBLevel.MIRROR_HITS_TO_BREAK;
+            if (this.mirror2 !== undefined) {
+                this.mirror2.visible = true;
+            }
+        }
     }
 
     protected initializePlayer2(key: string): void {
