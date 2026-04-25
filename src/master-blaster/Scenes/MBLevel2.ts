@@ -14,16 +14,19 @@ import { SpellSpriteKey, SpellSpritePath } from "../Spells/SpellTypes";
  * The second level for the Master Blaster. It should be the goose dungeon / cave.
  */
 export default class Level2 extends MBLevel {
-    protected static readonly LEVEL_CENTER = new Vec2(256, 256);
+    protected static readonly SCALE_FACTOR = 1.5;
+    protected static readonly LEVEL_CENTER = new Vec2(384, 384);
 
-    public static readonly PLAYER_SPAWN  = new Vec2(144, 320);
-    public static readonly PLAYER2_SPAWN = new Vec2(368, 320);
+    public static readonly PLAYER_SPAWN  = new Vec2(216, 480);
+    public static readonly PLAYER2_SPAWN = new Vec2(552, 480);
+    public static readonly PLAYER_RESPAWN = new Vec2(216, 480);
+    public static readonly PLAYER2_RESPAWN = new Vec2(552, 480);
     public static readonly PLAYER_SPRITE_KEY = "PLAYER_SPRITE_KEY";
     public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/Hero.json";
 
     public static readonly TILEMAP_KEY = "LEVEL2";
     public static readonly TILEMAP_PATH = "game_assets/tilemaps/MBLevel2.json";
-    public static readonly TILEMAP_SCALE = new Vec2(2, 2);
+    public static readonly TILEMAP_SCALE = new Vec2(3, 3);
     public static readonly DESTRUCTIBLE_LAYER_KEY = "Destructable";
     public static readonly WALLS_LAYER_KEY = "Main";
 
@@ -53,8 +56,9 @@ export default class Level2 extends MBLevel {
         this.playerSpriteKey = Level2.PLAYER_SPRITE_KEY;
         // Set spawn positions
         this.playerSpawn = Level2.PLAYER_SPAWN;
-        this.respawnPosition = Level2.PLAYER_SPAWN.clone();
+        this.respawnPosition = Level2.PLAYER_RESPAWN.clone();
         this.player2Spawn = Level2.PLAYER2_SPAWN;
+        this.player2RespawnPosition = Level2.PLAYER2_RESPAWN.clone();
 
         // Music and sound
         this.levelMusicKey = Level2.LEVEL_MUSIC_KEY

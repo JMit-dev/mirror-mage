@@ -92,6 +92,7 @@ export default abstract class MBLevel extends Scene {
     protected stockIcons2!: Array<Sprite>;
     protected stocksRemaining2: number = 0;
     protected respawnPosition!: Vec2;
+    protected player2RespawnPosition!: Vec2;
     protected networkPublishCooldown: number = 0;
     protected lastRemotePlayer1Position: Vec2;
     protected lastRemotePlayer2Position: Vec2;
@@ -703,6 +704,10 @@ export default abstract class MBLevel extends Scene {
     }
 
     protected getRespawnPosition(playerNum: 1 | 2): Vec2 {
+        if (playerNum === 2 && this.player2RespawnPosition !== undefined) {
+            return this.player2RespawnPosition;
+        }
+
         if (this.respawnPosition !== undefined) {
             return this.respawnPosition;
         }
