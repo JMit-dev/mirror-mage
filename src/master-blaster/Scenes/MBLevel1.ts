@@ -13,6 +13,7 @@ import PlayerController from "../Player/PlayerController";
 import OrthogonalTilemap from "../../Wolfie2D/Nodes/Tilemaps/OrthogonalTilemap";
 import { GraphicType } from "../../Wolfie2D/Nodes/Graphics/GraphicTypes";
 import Color from "../../Wolfie2D/Utils/Color";
+import { SpellSpriteKey, SpellSpritePath, SpellType } from "../Spells/SpellTypes";
 
 /**
  * The first level for Master Blaster - should be the one with the grass and the clouds.
@@ -58,9 +59,12 @@ export default class Level1 extends MBLevel {
     protected static readonly ENEMY_FIRE_COOLDOWN = 2;
     protected static readonly ENEMY_SPELL_SPAWN_OFFSET = new Vec2(-20, 0);
     protected static readonly ENEMY_SPELL_BOUNCE_COOLDOWN = 0.15;
+    protected static readonly FIRE_PICKUP_POSITION = new Vec2(256, 152);
+    protected static readonly FIRE_PICKUP_SCALE = 2.5;
 
     protected enemy!: Sprite;
     protected enemySpell!: Sprite;
+    protected firePickup!: Sprite;
     protected enemySpellActive: boolean = false;
     protected enemySpellLifetimeRemaining: number = 0;
     protected enemyFireCooldownRemaining: number = 0;
@@ -104,6 +108,8 @@ export default class Level1 extends MBLevel {
         // Load in the player's sprite
         this.load.spritesheet(this.playerSpriteKey, Level1.PLAYER_SPRITE_PATH);
         this.load.image(PlayerWeapon.PROJECTILE_SPRITE_KEY, PlayerWeapon.PROJECTILE_SPRITE_PATH);
+        this.load.image(SpellSpriteKey.FIRE_PROJECTILE, SpellSpritePath.FIRE_PROJECTILE);
+        this.load.image(SpellSpriteKey.FIRE_PICKUP, SpellSpritePath.FIRE_PICKUP);
         this.load.image(MBLevel.MIRROR_SPRITE_KEY, MBLevel.MIRROR_SPRITE_PATH);
         this.load.image(MBLevel.STOCK_ICON_KEY, MBLevel.STOCK_ICON_PATH);
         this.load.image(Level1.ENEMY_SPRITE_KEY, Level1.ENEMY_SPRITE_PATH);
@@ -122,6 +128,8 @@ export default class Level1 extends MBLevel {
         this.emitter.fireEvent(GameEventType.STOP_SOUND, {key: this.levelMusicKey});
         this.load.keepSpritesheet(this.playerSpriteKey);
         this.load.keepImage(PlayerWeapon.PROJECTILE_SPRITE_KEY);
+        this.load.keepImage(SpellSpriteKey.FIRE_PROJECTILE);
+        this.load.keepImage(SpellSpriteKey.FIRE_PICKUP);
         this.load.keepImage(MBLevel.MIRROR_SPRITE_KEY);
         this.load.keepImage(MBLevel.STOCK_ICON_KEY);
         this.load.keepImage(Level1.ENEMY_SPRITE_KEY);
@@ -138,6 +146,7 @@ export default class Level1 extends MBLevel {
         this.initializeSkyBackground();
         this.initializeGroundBackground();
         this.levelEndArea.visible = false;
+        this.initializeFirePickup();
         this.initializeEnemy();
         // Set the next level to be Level2
         this.nextLevel = MBLevel2;
@@ -145,7 +154,31 @@ export default class Level1 extends MBLevel {
 
     public updateScene(deltaT: number): void {
         super.updateScene(deltaT);
+        this.updateFirePickup();
         this.updateEnemy(deltaT);
+    }
+
+    protected initializeFirePickup(): void {
+        this.firePickup = this.add.sprite(SpellSpriteKey.FIRE_PICKUP, MBLayers.PRIMARY);
+        this.firePickup.scale.set(Level1.FIRE_PICKUP_SCALE, Level1.FIRE_PICKUP_SCALE);
+        this.firePickup.position.copy(Level1.FIRE_PICKUP_POSITION);
+    }
+
+    protected updateFirePickup(): void {
+        if (!this.firePickup.visible) {
+            return;
+        }
+
+        if (this.firePickup.boundary.overlapArea(this.player.boundary) > 0) {
+            (this.player.ai as PlayerController).equipSpell(SpellType.FIRE);
+            this.firePickup.visible = false;
+            return;
+        }
+
+        if (this.player2 !== undefined && this.firePickup.boundary.overlapArea(this.player2.boundary) > 0) {
+            (this.player2.ai as PlayerController).equipSpell(SpellType.FIRE);
+            this.firePickup.visible = false;
+        }
     }
 
     protected initializeEnemy(): void {

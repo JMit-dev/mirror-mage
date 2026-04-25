@@ -16,6 +16,7 @@ import MathUtils from "../../Wolfie2D/Utils/MathUtils";
 import { MBEvents } from "../MBEvents";
 import Dead from "./PlayerStates/Dead";
 import FirebaseManager from "../Firebase/FirebaseManager";
+import { SpellType } from "../Spells/SpellTypes";
 
 /**
  * Animation keys for the player spritesheet
@@ -73,6 +74,7 @@ export default class PlayerController extends StateMachineAI {
     protected _isDead: boolean;
     protected _playerNumber: 1 | 2 = 1;
     protected _isLocalPlayer: boolean = true;
+    protected _currentSpell: SpellType;
 
     public initializeAI(owner: MBAnimatedSprite, options: Record<string, any>){
         this.owner = owner;
@@ -85,6 +87,7 @@ export default class PlayerController extends StateMachineAI {
         this.speed = 400;
         this.velocity = Vec2.ZERO;
         this.isDead = false;
+        this._currentSpell = SpellType.BASIC;
 
         this.maxHealth = 1;
         this.health = 1;
@@ -127,6 +130,7 @@ export default class PlayerController extends StateMachineAI {
 
     public get playerNumber(): 1 | 2 { return this._playerNumber; }
     public get isLocalPlayer(): boolean { return this._isLocalPlayer; }
+    public get currentSpell(): SpellType { return this._currentSpell; }
 
     public update(deltaT: number): void {
         super.update(deltaT);
@@ -136,9 +140,9 @@ export default class PlayerController extends StateMachineAI {
         }
 
         const fired = this._isLocalPlayer
-            ? (Input.isMouseJustPressed(0) || Input.isJustPressed(MBControls.ATTACK)) && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX)
+            ? (Input.isMouseJustPressed(0) || Input.isJustPressed(MBControls.ATTACK)) && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX, this.currentSpell)
             : FirebaseManager.state.mySlot === 0 && this._playerNumber === 2
-                ? Input.isJustPressed(MBControls.P2_ATTACK) && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX)
+                ? Input.isJustPressed(MBControls.P2_ATTACK) && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX, this.currentSpell)
                 : false;
 
         if (fired) {
@@ -151,6 +155,10 @@ export default class PlayerController extends StateMachineAI {
 
     public get speed(): number { return this._speed; }
     public set speed(speed: number) { this._speed = speed; }
+
+    public equipSpell(spell: SpellType): void {
+        this._currentSpell = spell;
+    }
 
     public get isDead(): boolean { return this._isDead; }
     public set isDead(isDead: boolean) { this._isDead = isDead; }

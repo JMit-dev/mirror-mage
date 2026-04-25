@@ -2,12 +2,14 @@ import AABB from "../../Wolfie2D/DataTypes/Shapes/AABB";
 import Vec2 from "../../Wolfie2D/DataTypes/Vec2";
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import Scene from "../../Wolfie2D/Scene/Scene";
+import { SpellSpecs, SpellType } from "../Spells/SpellTypes";
 
 type ProjectileData = {
     sprite: Sprite;
     direction: Vec2;
     lifetimeRemaining: number;
     active: boolean;
+    spellType: SpellType;
 };
 
 /**
@@ -44,7 +46,8 @@ export default class PlayerWeapon {
                 sprite,
                 direction: Vec2.RIGHT,
                 lifetimeRemaining: 0,
-                active: false
+                active: false,
+                spellType: SpellType.BASIC
             });
         }
     }
@@ -67,7 +70,7 @@ export default class PlayerWeapon {
         }
     }
 
-    public tryFire(playerPosition: Vec2, playerHalfWidth: number, facingLeft: boolean): boolean {
+    public tryFire(playerPosition: Vec2, playerHalfWidth: number, facingLeft: boolean, spellType: SpellType): boolean {
         if (this.cooldownRemaining > 0) {
             return false;
         }
@@ -82,8 +85,10 @@ export default class PlayerWeapon {
         const spawnPosition = playerPosition.clone().add(new Vec2(direction.x * xOffset, 0));
 
         projectile.direction = direction;
+        projectile.spellType = spellType;
         projectile.lifetimeRemaining = PlayerWeapon.PROJECTILE_LIFETIME;
         projectile.active = true;
+        projectile.sprite.imageId = SpellSpecs[spellType].projectileSpriteKey;
         projectile.sprite.position.copy(spawnPosition);
         projectile.sprite.invertX = facingLeft;
         projectile.sprite.visible = true;

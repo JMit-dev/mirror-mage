@@ -8,6 +8,7 @@ import Viewport from "../../Wolfie2D/SceneGraph/Viewport";
 import RenderingManager from "../../Wolfie2D/Rendering/RenderingManager";
 import SceneManager from "../../Wolfie2D/Scene/SceneManager";
 import PlayerWeapon from "../Player/PlayerWeapon";
+import { SpellSpriteKey, SpellSpritePath } from "../Spells/SpellTypes";
 
 /**
  * The second level for the Master Blaster. It should be the goose dungeon / cave.
@@ -76,6 +77,7 @@ export default class Level2 extends MBLevel {
         // Load in the player's sprite
         this.load.spritesheet(this.playerSpriteKey, Level2.PLAYER_SPRITE_PATH);
         this.load.image(PlayerWeapon.PROJECTILE_SPRITE_KEY, PlayerWeapon.PROJECTILE_SPRITE_PATH);
+        this.load.image(SpellSpriteKey.FIRE_PROJECTILE, SpellSpritePath.FIRE_PROJECTILE);
         this.load.image(MBLevel.MIRROR_SPRITE_KEY, MBLevel.MIRROR_SPRITE_PATH);
         this.load.image(MBLevel.STOCK_ICON_KEY, MBLevel.STOCK_ICON_PATH);
         // Level2-specific music
@@ -89,6 +91,7 @@ export default class Level2 extends MBLevel {
         this.emitter.fireEvent(GameEventType.STOP_SOUND, {key: this.levelMusicKey});
         this.load.keepSpritesheet(this.playerSpriteKey);
         this.load.keepImage(PlayerWeapon.PROJECTILE_SPRITE_KEY);
+        this.load.keepImage(SpellSpriteKey.FIRE_PROJECTILE);
         this.load.keepImage(MBLevel.MIRROR_SPRITE_KEY);
         this.load.keepImage(MBLevel.STOCK_ICON_KEY);
         this.load.keepAudio(this.jumpAudioKey);
