@@ -29,7 +29,6 @@ import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import FirebaseManager, { RuntimePlayerState } from "../Firebase/FirebaseManager";
 import { isDevTestingMode, isLocalCoopTestingMode } from "../config/RuntimeMode";
 import { consumeMirrorDurability, getHitMirrorOwner } from "../Spells/MirrorSpellUtils";
-import { SpellType } from "../Spells/SpellTypes";
 
 /**
  * A const object for the layer names
@@ -553,9 +552,6 @@ export default abstract class MBLevel extends Scene {
             this.player.setAIActive(false, {});
         }
 
-        if (this.localCoopTestingMode) {
-            (this.player.ai as PlayerController).equipSpell(SpellType.FIRE);
-        }
     }
     protected initializeViewport(): void {
         // Fixed viewport showing the full arena — no camera follow for 2-player same-screen
