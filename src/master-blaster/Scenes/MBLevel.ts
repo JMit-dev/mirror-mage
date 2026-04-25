@@ -27,8 +27,9 @@ import MainMenu from "./MainMenu";
 import AudioManager, { AudioChannelType } from "../../Wolfie2D/Sound/AudioManager";
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import FirebaseManager, { RuntimePlayerState } from "../Firebase/FirebaseManager";
-import { isDevTestingMode } from "../config/RuntimeMode";
+import { isDevTestingMode, isLocalCoopTestingMode } from "../config/RuntimeMode";
 import { consumeMirrorDurability, getHitMirrorOwner } from "../Spells/MirrorSpellUtils";
+import { SpellType } from "../Spells/SpellTypes";
 
 /**
  * A const object for the layer names
@@ -95,6 +96,7 @@ export default abstract class MBLevel extends Scene {
     protected lastRemotePlayer1Position: Vec2;
     protected lastRemotePlayer2Position: Vec2;
     protected readonly devTestingMode: boolean;
+    protected readonly localCoopTestingMode: boolean;
 
     /** The end of level stuff */
 
@@ -149,6 +151,7 @@ export default abstract class MBLevel extends Scene {
         this.lastRemotePlayer1Position = Vec2.ZERO;
         this.lastRemotePlayer2Position = Vec2.ZERO;
         this.devTestingMode = isDevTestingMode();
+        this.localCoopTestingMode = isLocalCoopTestingMode();
     }
 
     public startScene(): void {
@@ -167,9 +170,11 @@ export default abstract class MBLevel extends Scene {
         // Initialize players and mirrors
         this.initializePlayer(this.playerSpriteKey);
         this.initializeMirror();
-        if (!this.devTestingMode && this.player2Spawn !== undefined) {
+        if ((this.localCoopTestingMode || !this.devTestingMode) && this.player2Spawn !== undefined) {
             this.initializePlayer2(this.playerSpriteKey);
-            this.initializeMirror2();
+            if (!this.localCoopTestingMode) {
+                this.initializeMirror2();
+            }
         }
 
         // Initialize the viewport - this must come after the player has been initialized
@@ -268,6 +273,13 @@ export default abstract class MBLevel extends Scene {
                 continue;
             }
 
+            const hitPlayer = this.getHitPlayer(projectile.sprite, ownerPlayerNum);
+            if (hitPlayer !== null) {
+                this.damagePlayer(hitPlayer);
+                weaponSystem.deactivateById(projectile.sprite.id);
+                continue;
+            }
+
             if (projectile.sprite.collidedWithTilemap) {
                 this.handleProjectileHit(weaponSystem, projectile.sprite.id);
             }
@@ -348,7 +360,7 @@ export default abstract class MBLevel extends Scene {
                 return;
             }
             const pc = this.player2.ai as PlayerController;
-            const respawnTarget = this.player2Spawn ?? this.playerSpawn;
+            const respawnTarget = this.getRespawnPosition(2);
             pc.respawn(respawnTarget);
             this.restoreMirror(2);
             this.updateMirror2Position();
@@ -360,7 +372,7 @@ export default abstract class MBLevel extends Scene {
                 return;
             }
             const pc = this.player.ai as PlayerController;
-            const respawnTarget = this.respawnPosition ?? this.playerSpawn;
+            const respawnTarget = this.getRespawnPosition(1);
             pc.respawn(respawnTarget);
             this.restoreMirror(1);
             this.updateMirrorPosition();
@@ -539,6 +551,10 @@ export default abstract class MBLevel extends Scene {
         if (!(this.player.ai as PlayerController).isLocalPlayer) {
             this.player.setAIActive(false, {});
         }
+
+        if (this.localCoopTestingMode) {
+            (this.player.ai as PlayerController).equipSpell(SpellType.FIRE);
+        }
     }
     protected initializeViewport(): void {
         // Fixed viewport showing the full arena — no camera follow for 2-player same-screen
@@ -662,6 +678,40 @@ export default abstract class MBLevel extends Scene {
         ]);
     }
 
+    protected getHitPlayer(spell: Sprite, excludedPlayerNum?: 1 | 2): 1 | 2 | null {
+        if (excludedPlayerNum !== 1 && this.player.boundary.overlapArea(spell.boundary) > 0) {
+            return 1;
+        }
+
+        if (excludedPlayerNum !== 2 && this.player2 !== undefined && this.player2.boundary.overlapArea(spell.boundary) > 0) {
+            return 2;
+        }
+
+        return null;
+    }
+
+    protected damagePlayer(playerNum: 1 | 2): void {
+        const target = playerNum === 2 ? this.player2 : this.player;
+        if (target === undefined) {
+            return;
+        }
+
+        const controller = target.ai as PlayerController;
+        if (!controller.isDead) {
+            controller.health -= 1;
+        }
+    }
+
+    protected getRespawnPosition(playerNum: 1 | 2): Vec2 {
+        if (this.respawnPosition !== undefined) {
+            return this.respawnPosition;
+        }
+
+        return playerNum === 2 && this.player2Spawn !== undefined
+            ? this.player2Spawn
+            : this.playerSpawn;
+    }
+
     protected damageMirror(playerNum: 1 | 2): boolean {
         if (!this.isMirrorActive(playerNum)) {
             return false;
@@ -728,7 +778,7 @@ export default abstract class MBLevel extends Scene {
             playerNumber: 2,
             isLocalPlayer: FirebaseManager.state.mySlot === 2,
         });
-        if (!(this.player2.ai as PlayerController).isLocalPlayer) {
+        if (!(this.player2.ai as PlayerController).isLocalPlayer && !this.localCoopTestingMode) {
             this.player2.setAIActive(false, {});
         }
     }

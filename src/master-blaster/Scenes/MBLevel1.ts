@@ -252,9 +252,9 @@ export default class Level1 extends MBLevel {
             return;
         }
 
-        if (this.enemySpell.boundary.overlapArea(this.player.boundary) > 0) {
-            const playerController = this.player.ai as PlayerController;
-            playerController.health -= 1;
+        const hitPlayer = this.getHitPlayer(this.enemySpell);
+        if (hitPlayer !== null) {
+            this.damagePlayer(hitPlayer);
             this.deactivateEnemySpell();
         }
     }
