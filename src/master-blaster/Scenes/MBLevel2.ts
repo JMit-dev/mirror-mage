@@ -20,7 +20,7 @@ export default class Level2 extends MBLevel {
     protected static readonly SCALE_FACTOR = 1.5;
     protected static readonly LEVEL_CENTER = new Vec2(384, 384);
     protected static readonly FIRE_PICKUP_POSITION = Level2.LEVEL_CENTER;
-    protected static readonly FIRE_PICKUP_SCALE = 3;
+    protected static readonly FIRE_PICKUP_SCALE = 0.3;
 
     public static readonly PLAYER_SPAWN  = new Vec2(216, 480);
     public static readonly PLAYER2_SPAWN = new Vec2(552, 480);

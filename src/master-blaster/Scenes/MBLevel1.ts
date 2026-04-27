@@ -59,8 +59,8 @@ export default class Level1 extends MBLevel {
     protected static readonly ENEMY_FIRE_COOLDOWN = 2;
     protected static readonly ENEMY_SPELL_SPAWN_OFFSET = new Vec2(-20, 0);
     protected static readonly ENEMY_SPELL_BOUNCE_COOLDOWN = 0.15;
-    protected static readonly FIRE_PICKUP_POSITION = new Vec2(256, 152);
-    protected static readonly FIRE_PICKUP_SCALE = 2.5;
+    protected static readonly FIRE_PICKUP_POSITION = Level1.LEVEL_CENTER;
+    protected static readonly FIRE_PICKUP_SCALE = 0.3;
 
     protected enemy!: Sprite;
     protected enemySpell!: Sprite;
@@ -143,6 +143,10 @@ export default class Level1 extends MBLevel {
         this.addLayer(Level1.SKY_LAYER_KEY, -10);
         this.addLayer(Level1.GROUND_BACKGROUND_LAYER_KEY, -9);
         super.startScene();
+        (this.player.ai as PlayerController).equipSpell(SpellType.BASIC);
+        if (this.player2 !== undefined) {
+            (this.player2.ai as PlayerController).equipSpell(SpellType.BASIC);
+        }
         this.initializeSkyBackground();
         this.initializeGroundBackground();
         this.levelEndArea.visible = false;

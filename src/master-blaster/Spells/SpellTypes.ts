@@ -12,7 +12,7 @@ export const SpellSpriteKey = {
 } as const;
 
 export const SpellSpritePath = {
-    BASIC_PROJECTILE: "game_assets/spritesheets/projectile temp.png",
+    BASIC_PROJECTILE: "game_assets/spritesheets/base spell.png",
     FIRE_PROJECTILE: "game_assets/spritesheets/fire.png",
     FIRE_PICKUP: "game_assets/spritesheets/fire.png",
 } as const;

@@ -18,7 +18,7 @@ type ProjectileData = {
  */
 export default class PlayerWeapon {
     public static readonly PROJECTILE_SPRITE_KEY = "PLAYER_PROJECTILE";
-    public static readonly PROJECTILE_SPRITE_PATH = "game_assets/spritesheets/projectile temp.png";
+    public static readonly PROJECTILE_SPRITE_PATH = "game_assets/spritesheets/base spell.png";
 
     protected static readonly PROJECTILE_SPEED = 250;
     protected static readonly PROJECTILE_LIFETIME = 3;

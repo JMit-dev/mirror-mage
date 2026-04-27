@@ -183,6 +183,7 @@ export default class PlayerController extends StateMachineAI {
     public respawn(position: Vec2): void {
         this.isDead = false;
         this.velocity = Vec2.ZERO;
+        this._currentSpell = SpellType.BASIC;
         this.owner.position.copy(position);
         this.owner.rotation = 0;
         this.owner.animation.stop();
