@@ -27,7 +27,7 @@ export default class Level1 extends MBLevel {
     public static readonly PLAYER_SPAWN = new Vec2(118, 272);
     public static readonly PLAYER2_SPAWN = new Vec2(394, 272);
     public static readonly PLAYER_SPRITE_KEY = "PLAYER_SPRITE_KEY";
-    public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/Hero.json";
+    public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/temp wizard.json";
     public static readonly ENEMY_SPRITE_KEY = "LEVEL1_ENEMY_SPRITE";
     public static readonly ENEMY_SPRITE_PATH = "game_assets/spritesheets/temp player 2.png";
     public static readonly ENEMY_SPELL_SPRITE_KEY = "LEVEL1_ENEMY_SPELL";
@@ -40,7 +40,7 @@ export default class Level1 extends MBLevel {
     public static readonly WALLS_LAYER_KEY = "Main";
 
     public static readonly LEVEL_MUSIC_KEY = "LEVEL_MUSIC";
-    public static readonly LEVEL_MUSIC_PATH = "game_assets/music/song 1-2026413-1738.wav";
+    public static readonly LEVEL_MUSIC_PATH = "game_assets/music/song1.wav";
 
     public static readonly JUMP_AUDIO_KEY = "PLAYER_JUMP";
     public static readonly JUMP_AUDIO_PATH = "game_assets/sounds/jump.wav";
@@ -147,7 +147,9 @@ export default class Level1 extends MBLevel {
         this.initializeGroundBackground();
         this.levelEndArea.visible = false;
         this.initializeFirePickup();
-        this.initializeEnemy();
+        if (this.devTestingMode) {
+            this.initializeEnemy();
+        }
         // Set the next level to be Level2
         this.nextLevel = MBLevel2;
     }
@@ -226,6 +228,10 @@ export default class Level1 extends MBLevel {
     }
 
     protected updateEnemy(deltaT: number): void {
+        if (!this.devTestingMode || this.enemy === undefined || this.enemySpell === undefined) {
+            return;
+        }
+
         this.enemyFireCooldownRemaining = Math.max(0, this.enemyFireCooldownRemaining - deltaT);
         this.enemySpellBounceCooldownRemaining = Math.max(0, this.enemySpellBounceCooldownRemaining - deltaT);
 

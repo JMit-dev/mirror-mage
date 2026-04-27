@@ -2,6 +2,7 @@ import AABB from "../../Wolfie2D/DataTypes/Shapes/AABB";
 import Vec2 from "../../Wolfie2D/DataTypes/Vec2";
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import Scene from "../../Wolfie2D/Scene/Scene";
+import ResourceManager from "../../Wolfie2D/ResourceManager/ResourceManager";
 import { SpellSpecs, SpellType } from "../Spells/SpellTypes";
 
 type ProjectileData = {
@@ -22,7 +23,7 @@ export default class PlayerWeapon {
     protected static readonly PROJECTILE_SPEED = 250;
     protected static readonly PROJECTILE_LIFETIME = 3;
     protected static readonly PROJECTILE_COOLDOWN = 2;
-    protected static readonly PROJECTILE_SCALE = 2;
+    protected static readonly PROJECTILE_TARGET_SIZE = 16;
     protected static readonly PROJECTILE_POOL_SIZE = 3;
     protected static readonly PROJECTILE_SPAWN_PADDING = 8;
 
@@ -37,7 +38,7 @@ export default class PlayerWeapon {
     public initializePool(scene: Scene, layer: string): void {
         for (let i = 0; i < PlayerWeapon.PROJECTILE_POOL_SIZE; i++) {
             const sprite = scene.add.sprite(PlayerWeapon.PROJECTILE_SPRITE_KEY, layer);
-            sprite.scale.set(PlayerWeapon.PROJECTILE_SCALE, PlayerWeapon.PROJECTILE_SCALE);
+            this.applyProjectileAppearance(sprite, PlayerWeapon.PROJECTILE_SPRITE_KEY);
             sprite.addPhysics(new AABB(sprite.position.clone(), sprite.boundary.halfSize.clone()));
             sprite.visible = false;
             sprite.disablePhysics();
@@ -88,7 +89,7 @@ export default class PlayerWeapon {
         projectile.spellType = spellType;
         projectile.lifetimeRemaining = PlayerWeapon.PROJECTILE_LIFETIME;
         projectile.active = true;
-        projectile.sprite.imageId = SpellSpecs[spellType].projectileSpriteKey;
+        this.applyProjectileAppearance(projectile.sprite, SpellSpecs[spellType].projectileSpriteKey);
         projectile.sprite.position.copy(spawnPosition);
         projectile.sprite.invertX = facingLeft;
         projectile.sprite.visible = true;
@@ -117,5 +118,19 @@ export default class PlayerWeapon {
         projectile.sprite.visible = false;
         projectile.sprite.disablePhysics();
         projectile.sprite._velocity.zero();
+    }
+
+    protected applyProjectileAppearance(sprite: Sprite, imageId: string): void {
+        const image = ResourceManager.getInstance().getImage(imageId);
+        sprite.imageId = imageId;
+        sprite.size.set(image.width, image.height);
+        sprite.scale.set(
+            PlayerWeapon.PROJECTILE_TARGET_SIZE / image.width,
+            PlayerWeapon.PROJECTILE_TARGET_SIZE / image.height
+        );
+
+        if (sprite.hasPhysics) {
+            sprite.setCollisionShape(sprite.boundary.clone());
+        }
     }
 }

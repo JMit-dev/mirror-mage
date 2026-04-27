@@ -27,7 +27,7 @@ export default class Level2 extends MBLevel {
     public static readonly PLAYER_RESPAWN = new Vec2(216, 480);
     public static readonly PLAYER2_RESPAWN = new Vec2(552, 480);
     public static readonly PLAYER_SPRITE_KEY = "PLAYER_SPRITE_KEY";
-    public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/Hero.json";
+    public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/temp wizard.json";
 
     public static readonly TILEMAP_KEY = "LEVEL2";
     public static readonly TILEMAP_PATH = "game_assets/tilemaps/MBLevel2.json";
