@@ -19,21 +19,15 @@ export default class LobbyScene extends Scene {
     private statusLabel!: Label;
     private startRequested: boolean = false;
     private selectedLevel: "level1" | "level2" | "" = "";
-    private forceHostRoom: boolean = false;
 
     public initScene(init: Record<string, any>): void {
         this.selectedLevel = init?.selectedLevel === "level1" || init?.selectedLevel === "level2"
             ? init.selectedLevel
             : "";
-        this.forceHostRoom = init?.forceHostRoom === true;
     }
 
     public startScene(): void {
-        if (this.forceHostRoom) {
-            FirebaseManager.initializeAsHost();
-        } else {
-            FirebaseManager.initializeFromHash();
-        }
+        FirebaseManager.initialize();
 
         Input.enableInput();
         this.addUILayer(LAYER);

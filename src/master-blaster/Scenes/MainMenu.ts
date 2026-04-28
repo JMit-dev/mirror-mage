@@ -28,10 +28,12 @@ export default class MainMenu extends Scene {
     private level2Button!: Button;
     private backButton!: Button;
     private currentStep: MenuStep = "mode";
+    private pendingMode: typeof RuntimeModeValue[keyof typeof RuntimeModeValue] = RuntimeModeValue.DEFAULT;
 
     public startScene(): void {
         Input.enableInput();
         this.addUILayer(MenuLayers.MAIN);
+        setRuntimeMode(RuntimeModeValue.DEFAULT);
 
         // Center the viewport
         let size = this.viewport.getHalfSize();
@@ -53,9 +55,7 @@ export default class MainMenu extends Scene {
         this.subtitle.borderColor = Color.TRANSPARENT;
 
         if (this.hasRoomCodeInHash()) {
-            this.sceneManager.changeToScene(LobbyScene, {
-                forceHostRoom: false
-            });
+            this.sceneManager.changeToScene(LobbyScene);
             return;
         }
 
@@ -81,14 +81,13 @@ export default class MainMenu extends Scene {
 
     protected createModeControls(size: Vec2): void {
         this.onlineButton = this.createModeButton(new Vec2(size.x, size.y - 10), "Online");
-        this.onlineButton.onClick = () => {
-            setRuntimeMode(RuntimeModeValue.DEFAULT);
-            this.showLevelMenu();
-        };
-
         this.localButton = this.createModeButton(new Vec2(size.x, size.y + 80), "Local");
         this.localButton.onClick = () => {
-            setRuntimeMode(RuntimeModeValue.LOCAL_COOP_TESTING);
+            this.pendingMode = RuntimeModeValue.LOCAL_COOP_TESTING;
+            this.showLevelMenu();
+        };
+        this.onlineButton.onClick = () => {
+            this.pendingMode = RuntimeModeValue.DEFAULT;
             this.showLevelMenu();
         };
     }
@@ -119,6 +118,7 @@ export default class MainMenu extends Scene {
 
     protected showModeMenu(): void {
         this.currentStep = "mode";
+        this.pendingMode = RuntimeModeValue.DEFAULT;
         this.subtitle.text = "Choose a mode";
         this.onlineButton.visible = true;
         this.localButton.visible = true;
@@ -129,7 +129,7 @@ export default class MainMenu extends Scene {
 
     protected showLevelMenu(): void {
         this.currentStep = "level";
-        const localMode = isLocalCoopTestingMode();
+        const localMode = this.pendingMode === RuntimeModeValue.LOCAL_COOP_TESTING;
         this.subtitle.text = localMode
             ? "Choose a local level"
             : "Choose an online level";
@@ -141,15 +141,17 @@ export default class MainMenu extends Scene {
     }
 
     protected handleLevelSelection(level: "level1" | "level2"): void {
-        if (isLocalCoopTestingMode()) {
+        const localMode = this.pendingMode === RuntimeModeValue.LOCAL_COOP_TESTING;
+        setRuntimeMode(localMode ? RuntimeModeValue.LOCAL_COOP_TESTING : RuntimeModeValue.DEFAULT);
+
+        if (localMode) {
             this.sceneManager.changeToScene(level === "level1" ? Level1 : Level2);
             return;
         }
 
         if (FirebaseManager.state.mySlot === 0) {
             this.sceneManager.changeToScene(LobbyScene, {
-                selectedLevel: level,
-                forceHostRoom: !this.hasRoomCodeInHash()
+                selectedLevel: level
             });
             return;
         }

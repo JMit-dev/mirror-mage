@@ -50,24 +50,12 @@ export default class FirebaseManager {
     }
 
     public static initialize(): void {
-        this.initializeFromHash();
-    }
-
-    public static initializeAsHost(): void {
-        this.initializeWithMode(true);
-    }
-
-    public static initializeFromHash(): void {
-        this.initializeWithMode(false);
-    }
-
-    private static initializeWithMode(forceNewRoom: boolean): void {
         if (this._initialized) return;
         this._initialized = true;
 
         this._playerId = this.getOrCreatePlayerId();
 
-        const existingCode = forceNewRoom ? null : this.readCodeFromHash();
+        const existingCode = this.readCodeFromHash();
         if (existingCode) {
             this._state.roomCode = existingCode;
             this._state.joinUrl = this.buildJoinUrl(existingCode);
