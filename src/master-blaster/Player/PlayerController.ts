@@ -76,6 +76,13 @@ export default class PlayerController extends StateMachineAI {
     protected _isLocalPlayer: boolean = true;
     protected _currentSpell: SpellType;
 
+    // Remote input state — fed by MBLevel when P2P packets arrive
+    private _remoteLeft: boolean = false;
+    private _remoteRight: boolean = false;
+    private _remoteJump: boolean = false;     // consumed after one read
+    private _remoteAttack: boolean = false;   // consumed after one read
+    public remoteMirrorAngle: number = 0;
+
     public initializeAI(owner: MBAnimatedSprite, options: Record<string, any>){
         this.owner = owner;
 
@@ -103,6 +110,14 @@ export default class PlayerController extends StateMachineAI {
         this.initialize(PlayerStates.IDLE);
     }
 
+    /** Inject a received network input for a remote player (called by MBLevel each frame). */
+    public setRemoteInput(left: boolean, right: boolean, jump: boolean, attack: boolean): void {
+        this._remoteLeft  = left;
+        this._remoteRight = right;
+        if (jump)   this._remoteJump   = true;
+        if (attack) this._remoteAttack = true;
+    }
+
     /**
      * Get the inputs from the keyboard, or Vec2.Zero if nothing is being pressed
      */
@@ -112,8 +127,16 @@ export default class PlayerController extends StateMachineAI {
             direction.x = (Input.isPressed(MBControls.MOVE_LEFT) ? -1 : 0) + (Input.isPressed(MBControls.MOVE_RIGHT) ? 1 : 0);
             direction.y = (Input.isJustPressed(MBControls.JUMP) ? -1 : 0);
         } else if (FirebaseManager.state.mySlot === 0 && this._playerNumber === 2) {
+            // Local co-op / dev mode: P2 uses alternate keys
             direction.x = (Input.isPressed(MBControls.P2_MOVE_LEFT) ? -1 : 0) + (Input.isPressed(MBControls.P2_MOVE_RIGHT) ? 1 : 0);
             direction.y = (Input.isJustPressed(MBControls.P2_JUMP) ? -1 : 0);
+        } else {
+            // Remote player: use received network inputs
+            direction.x = (this._remoteLeft ? -1 : 0) + (this._remoteRight ? 1 : 0);
+            if (this._remoteJump) {
+                direction.y = -1;
+                this._remoteJump = false;
+            }
         }
         return direction;
     }
@@ -123,9 +146,24 @@ export default class PlayerController extends StateMachineAI {
         if (this._isLocalPlayer) {
             return Input.isJustPressed(MBControls.JUMP);
         }
-        return FirebaseManager.state.mySlot === 0 && this._playerNumber === 2
-            ? Input.isJustPressed(MBControls.P2_JUMP)
-            : false;
+        if (FirebaseManager.state.mySlot === 0 && this._playerNumber === 2) {
+            return Input.isJustPressed(MBControls.P2_JUMP);
+        }
+        // Remote: consume the one-shot flag
+        if (this._remoteJump) {
+            this._remoteJump = false;
+            return true;
+        }
+        return false;
+    }
+
+    /** True when the remote player fired their weapon this frame (one-shot). */
+    public consumeRemoteAttack(): boolean {
+        if (this._remoteAttack) {
+            this._remoteAttack = false;
+            return true;
+        }
+        return false;
     }
 
     public get playerNumber(): 1 | 2 { return this._playerNumber; }
@@ -139,11 +177,18 @@ export default class PlayerController extends StateMachineAI {
             return;
         }
 
-        const fired = this._isLocalPlayer
-            ? (Input.isMouseJustPressed(0) || Input.isJustPressed(MBControls.ATTACK)) && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX, this.currentSpell)
-            : FirebaseManager.state.mySlot === 0 && this._playerNumber === 2
-                ? Input.isJustPressed(MBControls.P2_ATTACK) && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX, this.currentSpell)
-                : false;
+        let fired = false;
+        if (this._isLocalPlayer) {
+            fired = (Input.isMouseJustPressed(0) || Input.isJustPressed(MBControls.ATTACK))
+                && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX, this.currentSpell);
+        } else if (FirebaseManager.state.mySlot === 0 && this._playerNumber === 2) {
+            // Local co-op / dev mode
+            fired = Input.isJustPressed(MBControls.P2_ATTACK)
+                && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX, this.currentSpell);
+        } else if (this.consumeRemoteAttack()) {
+            // Remote player fired — replicate their weapon here
+            fired = this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.owner.invertX, this.currentSpell);
+        }
 
         if (fired) {
             this.owner.animation.play(PlayerAnimations.ATTACK, false);

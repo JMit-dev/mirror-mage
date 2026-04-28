@@ -21,6 +21,7 @@ import PlayerController, { PlayerAnimations, PlayerTweens } from "../Player/Play
 import PlayerWeapon from "../Player/PlayerWeapon";
 
 import { MBEvents } from "../MBEvents";
+import { MBControls } from "../MBControls";
 import { MBPhysicsGroups } from "../MBPhysicsGroups";
 import MBFactoryManager from "../Factory/MBFactoryManager";
 import MainMenu from "./MainMenu";
@@ -29,6 +30,8 @@ import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import FirebaseManager, { RuntimePlayerState } from "../Firebase/FirebaseManager";
 import { isDevTestingMode, isLocalCoopTestingMode } from "../config/RuntimeMode";
 import { consumeMirrorDurability, getHitMirrorOwner } from "../Spells/MirrorSpellUtils";
+import P2PManager from "../Network/P2PManager";
+import { PacketType, EventId, StatePacket, decodeState, encodeState, encodeEvent, decodeEvent } from "../Network/NetPacket";
 
 /**
  * A const object for the layer names
@@ -97,6 +100,10 @@ export default abstract class MBLevel extends Scene {
     protected lastRemotePlayer2Position: Vec2;
     protected readonly devTestingMode: boolean;
     protected readonly localCoopTestingMode: boolean;
+
+    // Latest state packets received from the remote peer via WebRTC
+    protected remoteStateP1: StatePacket | null = null;
+    protected remoteStateP2: StatePacket | null = null;
 
     /** The end of level stuff */
 
@@ -196,6 +203,21 @@ export default abstract class MBLevel extends Scene {
 
         // Start the black screen fade out
         this.levelTransitionScreen.tweens.play("fadeOut");
+
+        // Kick off WebRTC P2P connection (non-blocking; falls back to Firebase until ready)
+        if (!this.devTestingMode && !this.localCoopTestingMode && FirebaseManager.state.mySlot !== 0) {
+            const isHost = FirebaseManager.state.mySlot === 1;
+            P2PManager.connect(FirebaseManager.state.roomCode, isHost)
+                .catch((e) => console.warn("[P2P] connect failed:", e));
+            P2PManager.onMessage((data: ArrayBuffer) => this._handleNetPacket(data));
+
+            // Enable AI for the remote player so their physics runs locally from inputs
+            if (this.player2 !== undefined) {
+                const remoteIsP2 = FirebaseManager.state.mySlot === 1;
+                const remotePlayer = remoteIsP2 ? this.player2 : this.player;
+                remotePlayer.setAIActive(true, {});
+            }
+        }
 
         AudioManager.setVolume(AudioChannelType.MUSIC, this.levelMusicVolume);
         // Start playing the level music for the game level
@@ -364,6 +386,7 @@ export default abstract class MBLevel extends Scene {
             pc.respawn(respawnTarget);
             this.restoreMirror(2);
             this.updateMirror2Position();
+            this.sendNetEvent(EventId.PLAYER_RESPAWN, 2, respawnTarget.x, respawnTarget.y);
         } else {
             this.stocksRemaining -= 1;
             this.updateStockDisplay();
@@ -376,6 +399,7 @@ export default abstract class MBLevel extends Scene {
             pc.respawn(respawnTarget);
             this.restoreMirror(1);
             this.updateMirrorPosition();
+            this.sendNetEvent(EventId.PLAYER_RESPAWN, 1, respawnTarget.x, respawnTarget.y);
         }
         Input.enableInput();
     }
@@ -630,6 +654,10 @@ export default abstract class MBLevel extends Scene {
             if (!mouseDirection.isZero()) {
                 this.mirrorDirection = mouseDirection;
             }
+        } else if (P2PManager.isConnected) {
+            // Use the remote peer's actual mouse angle (received via P2P)
+            const angle = playerController.remoteMirrorAngle;
+            this.mirrorDirection = new Vec2(Math.cos(angle), -Math.sin(angle));
         } else {
             this.mirrorDirection = new Vec2(this.player.invertX ? -1 : 1, 0);
         }
@@ -696,6 +724,8 @@ export default abstract class MBLevel extends Scene {
         const controller = target.ai as PlayerController;
         if (!controller.isDead) {
             controller.health -= 1;
+            // Tell the remote peer that this player was hit (we are the authority since our projectile caused it)
+            this.sendNetEvent(EventId.PLAYER_HIT, playerNum);
         }
     }
 
@@ -730,6 +760,7 @@ export default abstract class MBLevel extends Scene {
             }
         }
 
+        this.sendNetEvent(EventId.MIRROR_HIT, playerNum);
         return this.isMirrorActive(playerNum);
     }
 
@@ -789,52 +820,145 @@ export default abstract class MBLevel extends Scene {
             return;
         }
 
-        this.networkPublishCooldown = Math.max(0, this.networkPublishCooldown - deltaT);
-        if (this.networkPublishCooldown === 0) {
-            this.publishLocalPlayerStates();
-            this.networkPublishCooldown = 0.05;
-        }
-
-        this.applyRemotePlayerState(1, this.player, this.lastRemotePlayer1Position);
-        if (this.player2 !== undefined) {
-            this.applyRemotePlayerState(2, this.player2, this.lastRemotePlayer2Position);
-        }
-    }
-
-    protected publishLocalPlayerStates(): void {
-        const player1Controller = this.player.ai as PlayerController;
-        if (player1Controller.isLocalPlayer) {
-            FirebaseManager.publishPlayerState(1, this.makeRuntimePlayerState(this.player)).catch(() => {});
-        }
-
-        if (this.player2 !== undefined) {
-            const player2Controller = this.player2.ai as PlayerController;
-            if (player2Controller.isLocalPlayer) {
-                FirebaseManager.publishPlayerState(2, this.makeRuntimePlayerState(this.player2)).catch(() => {});
+        if (P2PManager.isConnected) {
+            this._sendLocalStateP2P();
+            this._applyRemoteStateP2P();
+        } else {
+            // Firebase fallback while P2P is still connecting
+            this.networkPublishCooldown = Math.max(0, this.networkPublishCooldown - deltaT);
+            if (this.networkPublishCooldown === 0) {
+                this._publishLocalStateFirebase();
+                this.networkPublishCooldown = 0.05;
+            }
+            this._applyRemoteStateFirebase(1, this.player, this.lastRemotePlayer1Position);
+            if (this.player2 !== undefined) {
+                this._applyRemoteStateFirebase(2, this.player2, this.lastRemotePlayer2Position);
             }
         }
     }
 
-    protected makeRuntimePlayerState(player: AnimatedSprite): RuntimePlayerState {
+    // -------------------------------------------------------------------------
+    // WebRTC P2P networking
+    // -------------------------------------------------------------------------
+
+    /** Called by P2PManager whenever a packet arrives from the remote peer. */
+    private _handleNetPacket(data: ArrayBuffer): void {
+        if (data.byteLength < 1) return;
+        const type = new DataView(data).getUint8(0);
+
+        if (type === PacketType.STATE) {
+            const pkt = decodeState(data);
+            // Store under the remote player's slot
+            const remoteSlot = FirebaseManager.state.mySlot === 1 ? 2 : 1;
+            if (remoteSlot === 1) {
+                this.remoteStateP1 = pkt;
+            } else {
+                this.remoteStateP2 = pkt;
+            }
+        } else if (type === PacketType.EVENT) {
+            this._handleNetEvent(decodeEvent(data));
+        }
+    }
+
+    private _handleNetEvent(evt: ReturnType<typeof decodeEvent>): void {
+        if (evt.eventId === EventId.PLAYER_HIT) {
+            // Remote peer authoritatively says this player was hit
+            this._applyPlayerHit(evt.playerNum);
+        } else if (evt.eventId === EventId.MIRROR_HIT) {
+            this._applyMirrorHit(evt.playerNum);
+        } else if (evt.eventId === EventId.PLAYER_RESPAWN) {
+            const target = evt.playerNum === 2 ? this.player2 : this.player;
+            if (target !== undefined) {
+                const pc = target.ai as PlayerController;
+                pc.respawn(new Vec2(evt.respawnX ?? 0, evt.respawnY ?? 0));
+                if (evt.playerNum === 1) this.restoreMirror(1);
+                else this.restoreMirror(2);
+            }
+        }
+    }
+
+    /** Build and send the local player's state packet over WebRTC. */
+    private _sendLocalStateP2P(): void {
+        const mySlot = FirebaseManager.state.mySlot as 1 | 2;
+        const localPlayer = mySlot === 1 ? this.player : this.player2;
+        if (localPlayer === undefined) return;
+
+        const mousePosition = Input.getGlobalMousePosition();
+        const mouseDir = localPlayer.position.dirTo(mousePosition);
+        const mirrorAngle = mouseDir.isZero() ? 0 : Math.atan2(-mouseDir.y, mouseDir.x);
+
+        const pc = localPlayer.ai as PlayerController;
+        const pkt: StatePacket = {
+            left:              Input.isPressed(mySlot === 1 ? MBControls.MOVE_LEFT  : MBControls.P2_MOVE_LEFT),
+            right:             Input.isPressed(mySlot === 1 ? MBControls.MOVE_RIGHT : MBControls.P2_MOVE_RIGHT),
+            jumpJustPressed:   Input.isJustPressed(mySlot === 1 ? MBControls.JUMP   : MBControls.P2_JUMP),
+            attackJustPressed: Input.isMouseJustPressed(0) || Input.isJustPressed(mySlot === 1 ? MBControls.ATTACK : MBControls.P2_ATTACK),
+            invertX:           localPlayer.invertX,
+            mirrorAngle,
+            posX:              localPlayer.position.x,
+            posY:              localPlayer.position.y,
+            spellType:         pc.currentSpell as unknown as number,
+        };
+        P2PManager.send(encodeState(pkt));
+    }
+
+    /** Apply the latest received state packet for the remote player. */
+    private _applyRemoteStateP2P(): void {
+        const remoteSlot = FirebaseManager.state.mySlot === 1 ? 2 : 1;
+        const pkt = remoteSlot === 1 ? this.remoteStateP1 : this.remoteStateP2;
+        const remotePlayer = remoteSlot === 1 ? this.player : this.player2;
+        if (pkt === null || remotePlayer === undefined) return;
+
+        const pc = remotePlayer.ai as PlayerController;
+
+        // Feed inputs into the remote player's controller so their physics runs locally
+        pc.setRemoteInput(pkt.left, pkt.right, pkt.jumpJustPressed, pkt.attackJustPressed);
+        pc.remoteMirrorAngle = pkt.mirrorAngle;
+
+        // Apply authoritative position correction (prevents drift over time)
+        remotePlayer.position.set(pkt.posX, pkt.posY);
+        remotePlayer.invertX = pkt.invertX;
+    }
+
+    /** Send a game event to the remote peer (authoritative — shooter calls this). */
+    protected sendNetEvent(eventId: number, playerNum: 1 | 2, respawnX?: number, respawnY?: number): void {
+        if (!P2PManager.isConnected) return;
+        P2PManager.send(encodeEvent({ eventId, playerNum, respawnX, respawnY }));
+    }
+
+    // -------------------------------------------------------------------------
+    // Firebase fallback (used until WebRTC connects)
+    // -------------------------------------------------------------------------
+
+    private _publishLocalStateFirebase(): void {
+        const player1Controller = this.player.ai as PlayerController;
+        if (player1Controller.isLocalPlayer) {
+            FirebaseManager.publishPlayerState(1, this._makeRuntimePlayerState(this.player)).catch(() => {});
+        }
+        if (this.player2 !== undefined) {
+            const player2Controller = this.player2.ai as PlayerController;
+            if (player2Controller.isLocalPlayer) {
+                FirebaseManager.publishPlayerState(2, this._makeRuntimePlayerState(this.player2)).catch(() => {});
+            }
+        }
+    }
+
+    private _makeRuntimePlayerState(player: AnimatedSprite): RuntimePlayerState {
         return {
             x: player.position.x,
             y: player.position.y,
             invertX: player.invertX,
             rotation: player.rotation,
-            updatedAt: Date.now()
+            updatedAt: Date.now(),
         };
     }
 
-    protected applyRemotePlayerState(slot: 1 | 2, player: AnimatedSprite, lastPosition: Vec2): void {
+    private _applyRemoteStateFirebase(slot: 1 | 2, player: AnimatedSprite, lastPosition: Vec2): void {
         const controller = player.ai as PlayerController;
-        if (controller.isLocalPlayer) {
-            return;
-        }
+        if (controller.isLocalPlayer) return;
 
         const runtimeState = FirebaseManager.state.runtimePlayers[slot];
-        if (!runtimeState) {
-            return;
-        }
+        if (!runtimeState) return;
 
         const newPosition = new Vec2(runtimeState.x, runtimeState.y);
         const dx = newPosition.x - lastPosition.x;
@@ -846,6 +970,23 @@ export default abstract class MBLevel extends Scene {
         player.rotation = runtimeState.rotation;
         player.animation.playIfNotAlready(moved ? PlayerAnimations.WALK : PlayerAnimations.IDLE);
         lastPosition.copy(newPosition);
+    }
+
+    // -------------------------------------------------------------------------
+    // Authoritative hit helpers — called locally and echoed to peer
+    // -------------------------------------------------------------------------
+
+    private _applyPlayerHit(playerNum: 1 | 2): void {
+        const target = playerNum === 2 ? this.player2 : this.player;
+        if (target === undefined) return;
+        const controller = target.ai as PlayerController;
+        if (!controller.isDead) {
+            controller.health -= 1;
+        }
+    }
+
+    private _applyMirrorHit(playerNum: 1 | 2): void {
+        this.damageMirror(playerNum);
     }
     /**
      * Initializes the level end area
