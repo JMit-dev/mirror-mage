@@ -211,12 +211,8 @@ export default abstract class MBLevel extends Scene {
                 .catch((e) => console.warn("[P2P] connect failed:", e));
             P2PManager.onMessage((data: ArrayBuffer) => this._handleNetPacket(data));
 
-            // Enable AI for the remote player so their physics runs locally from inputs
-            if (this.player2 !== undefined) {
-                const remoteIsP2 = FirebaseManager.state.mySlot === 1;
-                const remotePlayer = remoteIsP2 ? this.player2 : this.player;
-                remotePlayer.setAIActive(true, {});
-            }
+            // Remote player AI stays disabled — position is driven by received packets,
+            // not local physics, avoiding the teleport-vs-physics jitter conflict.
         }
 
         AudioManager.setVolume(AudioChannelType.MUSIC, this.levelMusicVolume);
@@ -291,6 +287,7 @@ export default abstract class MBLevel extends Scene {
             const hitMirrorPlayer = this.getMirrorHitPlayer(projectile.sprite, ownerPlayerNum);
             if (hitMirrorPlayer !== null) {
                 this.damageMirror(hitMirrorPlayer);
+                this.sendNetEvent(EventId.MIRROR_HIT, hitMirrorPlayer);
                 weaponSystem.deactivateById(projectile.sprite.id);
                 continue;
             }
@@ -386,7 +383,6 @@ export default abstract class MBLevel extends Scene {
             pc.respawn(respawnTarget);
             this.restoreMirror(2);
             this.updateMirror2Position();
-            this.sendNetEvent(EventId.PLAYER_RESPAWN, 2, respawnTarget.x, respawnTarget.y);
         } else {
             this.stocksRemaining -= 1;
             this.updateStockDisplay();
@@ -399,7 +395,6 @@ export default abstract class MBLevel extends Scene {
             pc.respawn(respawnTarget);
             this.restoreMirror(1);
             this.updateMirrorPosition();
-            this.sendNetEvent(EventId.PLAYER_RESPAWN, 1, respawnTarget.x, respawnTarget.y);
         }
         Input.enableInput();
     }
@@ -674,9 +669,23 @@ export default abstract class MBLevel extends Scene {
         }
 
         this.mirror2.visible = true;
-        // P2 mirror faces the direction P2 is moving (or last moved)
-        const facing = this.player2.invertX ? -1 : 1;
-        this.mirror2Direction = new Vec2(facing, 0);
+        const player2Controller = this.player2.ai as PlayerController;
+        // Use mySlot to determine authority — more reliable than isLocalPlayer at scene init time
+        const p2IsLocal = FirebaseManager.state.mySlot === 2 || FirebaseManager.state.mySlot === 0;
+
+        if (p2IsLocal) {
+            const mousePosition = Input.getGlobalMousePosition();
+            const mouseDirection = this.player2.position.dirTo(mousePosition);
+            if (!mouseDirection.isZero()) {
+                this.mirror2Direction = mouseDirection;
+            }
+        } else if (P2PManager.isConnected) {
+            const angle = player2Controller.remoteMirrorAngle;
+            this.mirror2Direction = new Vec2(Math.cos(angle), -Math.sin(angle));
+        } else {
+            this.mirror2Direction = new Vec2(this.player2.invertX ? -1 : 1, 0);
+        }
+
         const orbitRadius = this.player2.boundary.halfSize.x + this.mirror2.boundary.halfSize.x + MBLevel.MIRROR_PADDING;
         this.mirror2.position.copy(this.player2.position.clone().add(this.mirror2Direction.scaled(orbitRadius)));
         this.mirror2.rotation = Math.atan2(-this.mirror2Direction.y, this.mirror2Direction.x);
@@ -760,7 +769,6 @@ export default abstract class MBLevel extends Scene {
             }
         }
 
-        this.sendNetEvent(EventId.MIRROR_HIT, playerNum);
         return this.isMirrorActive(playerNum);
     }
 
@@ -910,14 +918,24 @@ export default abstract class MBLevel extends Scene {
         if (pkt === null || remotePlayer === undefined) return;
 
         const pc = remotePlayer.ai as PlayerController;
-
-        // Feed inputs into the remote player's controller so their physics runs locally
-        pc.setRemoteInput(pkt.left, pkt.right, pkt.jumpJustPressed, pkt.attackJustPressed);
         pc.remoteMirrorAngle = pkt.mirrorAngle;
 
-        // Apply authoritative position correction (prevents drift over time)
+        const dx = pkt.posX - remotePlayer.position.x;
+        const dy = pkt.posY - remotePlayer.position.y;
+        const moved = dx * dx + dy * dy > 4;
+
         remotePlayer.position.set(pkt.posX, pkt.posY);
         remotePlayer.invertX = pkt.invertX;
+
+        if (!pc.isDead) {
+            if (dy < -2) {
+                remotePlayer.animation.playIfNotAlready(PlayerAnimations.JUMP);
+            } else if (moved) {
+                remotePlayer.animation.playIfNotAlready(PlayerAnimations.WALK);
+            } else {
+                remotePlayer.animation.playIfNotAlready(PlayerAnimations.IDLE);
+            }
+        }
     }
 
     /** Send a game event to the remote peer (authoritative — shooter calls this). */
@@ -986,8 +1004,16 @@ export default abstract class MBLevel extends Scene {
     }
 
     private _applyMirrorHit(playerNum: 1 | 2): void {
-        this.damageMirror(playerNum);
+        // Directly reduce durability — calling damageMirror would re-send MIRROR_HIT causing an infinite loop
+        if (playerNum === 1) {
+            this.mirrorHitsRemaining = consumeMirrorDurability(this.mirrorHitsRemaining);
+            if (this.mirrorHitsRemaining <= 0 && this.mirror !== undefined) this.mirror.visible = false;
+        } else {
+            this.mirror2HitsRemaining = consumeMirrorDurability(this.mirror2HitsRemaining);
+            if (this.mirror2HitsRemaining <= 0 && this.mirror2 !== undefined) this.mirror2.visible = false;
+        }
     }
+
     /**
      * Initializes the level end area
      */

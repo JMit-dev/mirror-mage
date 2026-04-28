@@ -1,15 +1,22 @@
 {
   "hosting": {
-    "public": "dist",
+    "public": ".",
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "src/**",
+      "tsconfig.json",
+      "package.json",
+      "package-lock.json",
+      "gulpfile.js",
+      "index.html",
+      "README.md"
     ],
     "rewrites": [
       {
         "source": "**",
-        "destination": "/index.html"
+        "destination": "/dist/index.html"
       }
     ]
   }
