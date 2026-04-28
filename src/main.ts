@@ -1,14 +1,11 @@
 import Game from "./Wolfie2D/Loop/Game";
-import LobbyScene from "./master-blaster/Scenes/LobbyScene";
 import { MBControls } from "./master-blaster/MBControls";
 import MainMenu from "./master-blaster/Scenes/MainMenu";
-import { isLocalCoopTestingMode, isTestingMode } from "./master-blaster/config/RuntimeMode";
 
 // The main function is your entrypoint into Wolfie2D. Specify your first scene and any options here.
 (function main(){
 
     // Set up options for our game
-    const localCoopTestingMode = isLocalCoopTestingMode();
     let options = {
         canvasSize: {x: 1200, y: 600},          // The size of the game
         clearColor: {r: 34, g: 32, b: 52},   // The color the game clears to
@@ -17,10 +14,10 @@ import { isLocalCoopTestingMode, isTestingMode } from "./master-blaster/config/R
             {name: MBControls.MOVE_RIGHT,    keys: ["d"]},
             {name: MBControls.JUMP,          keys: ["w", "space"]},
             {name: MBControls.ATTACK,        keys: ["x"]},
-            {name: MBControls.P2_MOVE_LEFT,  keys: localCoopTestingMode ? ["j"] : ["arrowleft"]},
-            {name: MBControls.P2_MOVE_RIGHT, keys: localCoopTestingMode ? ["l"] : ["arrowright"]},
-            {name: MBControls.P2_JUMP,       keys: localCoopTestingMode ? ["i"] : ["arrowup"]},
-            {name: MBControls.P2_ATTACK,     keys: localCoopTestingMode ? ["b"] : ["enter"]},
+            {name: MBControls.P2_MOVE_LEFT,  keys: ["j", "arrowleft"]},
+            {name: MBControls.P2_MOVE_RIGHT, keys: ["l", "arrowright"]},
+            {name: MBControls.P2_JUMP,       keys: ["i", "arrowup"]},
+            {name: MBControls.P2_ATTACK,     keys: ["b", "enter"]},
         ],
         useWebGL: false,                        // Tell the game we want to use webgl
         showDebug: false                       // Whether to show debug messages. You can change this to true if you want
@@ -30,5 +27,5 @@ import { isLocalCoopTestingMode, isTestingMode } from "./master-blaster/config/R
     const game = new Game(options);
 
     // Start our game
-    game.start(isTestingMode() ? MainMenu : LobbyScene, {});
+    game.start(MainMenu, {});
 })();

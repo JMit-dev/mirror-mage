@@ -1,5 +1,3 @@
-import runtimeModeConfig from "./runtime-mode.json";
-
 export const RuntimeModeValue = {
     DEFAULT: 0,
     DEV_TESTING: 1,
@@ -8,13 +6,10 @@ export const RuntimeModeValue = {
 
 type RuntimeMode = typeof RuntimeModeValue[keyof typeof RuntimeModeValue];
 
-interface RuntimeModeConfig {
-    mode?: number;
-}
+let currentMode: RuntimeMode = RuntimeModeValue.DEFAULT;
 
 export function getConfiguredMode(): RuntimeMode {
-    const config = runtimeModeConfig as RuntimeModeConfig;
-    switch (config.mode) {
+    switch (currentMode) {
         case RuntimeModeValue.DEV_TESTING:
             return RuntimeModeValue.DEV_TESTING;
         case RuntimeModeValue.LOCAL_COOP_TESTING:
@@ -22,6 +17,10 @@ export function getConfiguredMode(): RuntimeMode {
         default:
             return RuntimeModeValue.DEFAULT;
     }
+}
+
+export function setRuntimeMode(mode: RuntimeMode): void {
+    currentMode = mode;
 }
 
 export function isDevTestingMode(): boolean {

@@ -22,10 +22,10 @@ export default class Level1 extends MBLevel {
 
     protected static readonly SKY_LAYER_KEY = "Level1Sky";
     protected static readonly GROUND_BACKGROUND_LAYER_KEY = "Level1GroundBackground";
-    protected static readonly LEVEL_CENTER = new Vec2(256, 256);
+    protected static readonly LEVEL_CENTER = new Vec2(600, 304);
 
-    public static readonly PLAYER_SPAWN = new Vec2(118, 272);
-    public static readonly PLAYER2_SPAWN = new Vec2(394, 272);
+    public static readonly PLAYER_SPAWN = new Vec2(454, 320);
+    public static readonly PLAYER2_SPAWN = new Vec2(730, 320);
     public static readonly PLAYER_SPRITE_KEY = "PLAYER_SPRITE_KEY";
     public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/temp wizard.json";
     public static readonly ENEMY_SPRITE_KEY = "LEVEL1_ENEMY_SPRITE";
@@ -50,8 +50,8 @@ export default class Level1 extends MBLevel {
     public static readonly DEATH_AUDIO_KEY = "PLAYER_DEATH";
     public static readonly DEATH_AUDIO_PATH = "game_assets/sounds/death.wav";
 
-    public static readonly LEVEL_END = new AABB(new Vec2(224, 232), new Vec2(24, 16));
-    protected static readonly ENEMY_POSITION = new Vec2(456, 272);
+    public static readonly LEVEL_END = new AABB(new Vec2(560, 280), new Vec2(24, 16));
+    protected static readonly ENEMY_POSITION = new Vec2(792, 320);
     protected static readonly ENEMY_SCALE = 4;
     protected static readonly ENEMY_SPELL_SCALE = 2;
     protected static readonly ENEMY_SPELL_SPEED = 120;
@@ -59,7 +59,7 @@ export default class Level1 extends MBLevel {
     protected static readonly ENEMY_FIRE_COOLDOWN = 2;
     protected static readonly ENEMY_SPELL_SPAWN_OFFSET = new Vec2(-20, 0);
     protected static readonly ENEMY_SPELL_BOUNCE_COOLDOWN = 0.15;
-    protected static readonly FIRE_PICKUP_POSITION = Level1.LEVEL_CENTER;
+    protected static readonly FIRE_PICKUP_POSITION = new Vec2(592, 304);
     protected static readonly FIRE_PICKUP_SCALE = 0.3;
 
     protected enemy!: Sprite;
@@ -84,7 +84,7 @@ export default class Level1 extends MBLevel {
         this.playerSpriteKey = Level1.PLAYER_SPRITE_KEY;
         // Set spawn positions
         this.playerSpawn = Level1.PLAYER_SPAWN;
-        this.respawnPosition = new Vec2(256, 144);
+        this.respawnPosition = new Vec2(592, 192);
         this.player2Spawn = Level1.PLAYER2_SPAWN;
 
         // Music and sound
@@ -95,7 +95,7 @@ export default class Level1 extends MBLevel {
         this.deathAudioKey = Level1.DEATH_AUDIO_KEY;
 
         // Level end size and position
-        this.levelEndPosition = new Vec2(96, 232).mult(this.tilemapScale);
+        this.levelEndPosition = new Vec2(264, 256).mult(this.tilemapScale);
         this.levelEndHalfSize = new Vec2(32, 32).mult(this.tilemapScale);
     }
 
@@ -149,7 +149,6 @@ export default class Level1 extends MBLevel {
         }
         this.initializeSkyBackground();
         this.initializeGroundBackground();
-        this.levelEndArea.visible = false;
         this.initializeFirePickup();
         if (this.devTestingMode) {
             this.initializeEnemy();
@@ -209,6 +208,10 @@ export default class Level1 extends MBLevel {
             Level1.LEVEL_CENTER.y + viewportHalfSize.y
         );
         this.viewport.setFocus(Level1.LEVEL_CENTER);
+    }
+
+    protected initializeLevelEnds(): void {
+        // Level 1 no longer uses an end-of-level trigger area.
     }
 
     protected initializeSkyBackground(): void {

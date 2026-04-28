@@ -18,14 +18,14 @@ import PlayerController from "../Player/PlayerController";
  */
 export default class Level2 extends MBLevel {
     protected static readonly SCALE_FACTOR = 1.5;
-    protected static readonly LEVEL_CENTER = new Vec2(384, 384);
+    protected static readonly LEVEL_CENTER = new Vec2(600, 300);
     protected static readonly FIRE_PICKUP_POSITION = Level2.LEVEL_CENTER;
     protected static readonly FIRE_PICKUP_SCALE = 0.3;
 
-    public static readonly PLAYER_SPAWN  = new Vec2(216, 480);
-    public static readonly PLAYER2_SPAWN = new Vec2(552, 480);
-    public static readonly PLAYER_RESPAWN = new Vec2(216, 480);
-    public static readonly PLAYER2_RESPAWN = new Vec2(552, 480);
+    public static readonly PLAYER_SPAWN  = new Vec2(432, 408);
+    public static readonly PLAYER2_SPAWN = new Vec2(768, 408);
+    public static readonly PLAYER_RESPAWN = new Vec2(432, 408);
+    public static readonly PLAYER2_RESPAWN = new Vec2(768, 408);
     public static readonly PLAYER_SPRITE_KEY = "PLAYER_SPRITE_KEY";
     public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/temp wizard.json";
 
@@ -75,7 +75,7 @@ export default class Level2 extends MBLevel {
         this.deathAudioKey = Level2.DEATH_AUDIO_KEY;
 
         // Level end size and position
-        this.levelEndPosition = new Vec2(32, 216).mult(this.tilemapScale);
+        this.levelEndPosition = new Vec2(104, 192).mult(this.tilemapScale);
         this.levelEndHalfSize = new Vec2(32, 32).mult(this.tilemapScale);
 
     }
@@ -129,7 +129,7 @@ export default class Level2 extends MBLevel {
     }
 
     protected initializeViewport(): void {
-        this.viewport.setZoomLevel(2);
+        this.viewport.setZoomLevel(1);
         const viewportHalfSize = this.viewport.getHalfSize();
         this.viewport.setBounds(
             Level2.LEVEL_CENTER.x - viewportHalfSize.x,

@@ -18,9 +18,22 @@ export default class LobbyScene extends Scene {
     private slot2Label!: Label;
     private statusLabel!: Label;
     private startRequested: boolean = false;
+    private selectedLevel: "level1" | "level2" | "" = "";
+    private forceHostRoom: boolean = false;
+
+    public initScene(init: Record<string, any>): void {
+        this.selectedLevel = init?.selectedLevel === "level1" || init?.selectedLevel === "level2"
+            ? init.selectedLevel
+            : "";
+        this.forceHostRoom = init?.forceHostRoom === true;
+    }
 
     public startScene(): void {
-        FirebaseManager.initialize();
+        if (this.forceHostRoom) {
+            FirebaseManager.initializeAsHost();
+        } else {
+            FirebaseManager.initializeFromHash();
+        }
 
         Input.enableInput();
         this.addUILayer(LAYER);
@@ -156,7 +169,7 @@ export default class LobbyScene extends Scene {
                 this.statusLabel.textColor = new Color(80, 220, 80);
                 if (!this.startRequested && Input.isJustPressed(MBControls.JUMP)) {
                     this.startRequested = true;
-                    FirebaseManager.startGame().catch(() => {
+                    this.startSelectedGame().catch(() => {
                         this.startRequested = false;
                     });
                 }
@@ -172,5 +185,12 @@ export default class LobbyScene extends Scene {
         if (s.started) {
             this.sceneManager.changeToScene(MainMenu);
         }
+    }
+
+    private async startSelectedGame(): Promise<void> {
+        if (this.selectedLevel) {
+            await FirebaseManager.selectLevel(this.selectedLevel);
+        }
+        await FirebaseManager.startGame();
     }
 }

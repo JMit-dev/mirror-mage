@@ -8,7 +8,8 @@ import Color from "../../Wolfie2D/Utils/Color";
 import FirebaseManager from "../Firebase/FirebaseManager";
 import Level1 from "./MBLevel1";
 import Level2 from "./MBLevel2";
-import { isDevTestingMode, isLocalCoopTestingMode, isTestingMode } from "../config/RuntimeMode";
+import LobbyScene from "./LobbyScene";
+import { RuntimeModeValue, isLocalCoopTestingMode, setRuntimeMode } from "../config/RuntimeMode";
 
 
 // Layers for the main menu scene
@@ -16,11 +17,17 @@ export const MenuLayers = {
     MAIN: "MAIN"
 } as const;
 
+type MenuStep = "mode" | "level";
+
 export default class MainMenu extends Scene {
     private levelLaunchRequested: boolean = false;
-    private readonly devTestingMode: boolean = isDevTestingMode();
-    private readonly localCoopTestingMode: boolean = isLocalCoopTestingMode();
-    private readonly testingMode: boolean = isTestingMode();
+    private subtitle!: Label;
+    private onlineButton!: Button;
+    private localButton!: Button;
+    private level1Button!: Button;
+    private level2Button!: Button;
+    private backButton!: Button;
+    private currentStep: MenuStep = "mode";
 
     public startScene(): void {
         Input.enableInput();
@@ -38,52 +45,27 @@ export default class MainMenu extends Scene {
         title.backgroundColor = Color.TRANSPARENT;
         title.borderColor = Color.TRANSPARENT;
 
-        const subtitle = <Label>this.add.uiElement(UIElementType.LABEL, MenuLayers.MAIN, {position: new Vec2(size.x, size.y - 110), text: "Choose a level to start"});
-        subtitle.font = "PixelSimple";
-        subtitle.fontSize = 28;
-        subtitle.textColor = Color.WHITE;
-        subtitle.backgroundColor = Color.TRANSPARENT;
-        subtitle.borderColor = Color.TRANSPARENT;
+        this.subtitle = <Label>this.add.uiElement(UIElementType.LABEL, MenuLayers.MAIN, {position: new Vec2(size.x, size.y - 110), text: ""});
+        this.subtitle.font = "PixelSimple";
+        this.subtitle.fontSize = 28;
+        this.subtitle.textColor = Color.WHITE;
+        this.subtitle.backgroundColor = Color.TRANSPARENT;
+        this.subtitle.borderColor = Color.TRANSPARENT;
 
-        if (this.testingMode) {
-            const modeText = this.localCoopTestingMode
-                ? "LOCAL CO-OP TEST MODE: P1 WASD + mouse, P2 IJKL + B"
-                : "DEV TESTING MODE: solo map launch";
-            const devLabel = <Label>this.add.uiElement(UIElementType.LABEL, MenuLayers.MAIN, {position: new Vec2(size.x, size.y - 70), text: modeText});
-            devLabel.font = "PixelSimple";
-            devLabel.fontSize = 20;
-            devLabel.textColor = new Color(255, 215, 0);
-            devLabel.backgroundColor = Color.TRANSPARENT;
-            devLabel.borderColor = Color.TRANSPARENT;
+        if (this.hasRoomCodeInHash()) {
+            this.sceneManager.changeToScene(LobbyScene, {
+                forceHostRoom: false
+            });
+            return;
         }
 
-        const level1Button = this.createLevelButton(new Vec2(size.x, size.y), "Level 1");
-        level1Button.onClick = () => {
-            if (this.testingMode) {
-                this.sceneManager.changeToScene(Level1);
-            } else if (FirebaseManager.state.mySlot === 1 && !this.levelLaunchRequested) {
-                this.levelLaunchRequested = true;
-                FirebaseManager.selectLevel("level1").catch(() => {
-                    this.levelLaunchRequested = false;
-                });
-            }
-        };
-
-        const level2Button = this.createLevelButton(new Vec2(size.x, size.y + 90), "Level 2");
-        level2Button.onClick = () => {
-            if (this.testingMode) {
-                this.sceneManager.changeToScene(Level2);
-            } else if (FirebaseManager.state.mySlot === 1 && !this.levelLaunchRequested) {
-                this.levelLaunchRequested = true;
-                FirebaseManager.selectLevel("level2").catch(() => {
-                    this.levelLaunchRequested = false;
-                });
-            }
-        };
+        this.createModeControls(size);
+        this.createLevelControls(size);
+        this.showModeMenu();
     }
 
     public updateScene(): void {
-        if (this.testingMode) {
+        if (isLocalCoopTestingMode()) {
             return;
         }
 
@@ -95,6 +77,93 @@ export default class MainMenu extends Scene {
                 this.sceneManager.changeToScene(Level2);
                 break;
         }
+    }
+
+    protected createModeControls(size: Vec2): void {
+        this.onlineButton = this.createModeButton(new Vec2(size.x, size.y - 10), "Online");
+        this.onlineButton.onClick = () => {
+            setRuntimeMode(RuntimeModeValue.DEFAULT);
+            this.showLevelMenu();
+        };
+
+        this.localButton = this.createModeButton(new Vec2(size.x, size.y + 80), "Local");
+        this.localButton.onClick = () => {
+            setRuntimeMode(RuntimeModeValue.LOCAL_COOP_TESTING);
+            this.showLevelMenu();
+        };
+    }
+
+    protected createLevelControls(size: Vec2): void {
+        this.level1Button = this.createLevelButton(new Vec2(size.x, size.y), "Level 1");
+        this.level1Button.onClick = () => this.handleLevelSelection("level1");
+
+        this.level2Button = this.createLevelButton(new Vec2(size.x, size.y + 90), "Level 2");
+        this.level2Button.onClick = () => this.handleLevelSelection("level2");
+
+        this.backButton = this.createModeButton(new Vec2(size.x, size.y + 190), "Back");
+        this.backButton.onClick = () => this.showModeMenu();
+    }
+
+    protected createModeButton(position: Vec2, text: string): Button {
+        const button = <Button>this.add.uiElement(UIElementType.BUTTON, MenuLayers.MAIN, {position, text});
+        button.backgroundColor = new Color(34, 32, 52);
+        button.borderColor = Color.WHITE;
+        button.borderRadius = 0;
+        button.borderWidth = 2;
+        button.textColor = Color.WHITE;
+        button.setPadding(new Vec2(60, 14));
+        button.font = "PixelSimple";
+        button.fontSize = 32;
+        return button;
+    }
+
+    protected showModeMenu(): void {
+        this.currentStep = "mode";
+        this.subtitle.text = "Choose a mode";
+        this.onlineButton.visible = true;
+        this.localButton.visible = true;
+        this.level1Button.visible = false;
+        this.level2Button.visible = false;
+        this.backButton.visible = false;
+    }
+
+    protected showLevelMenu(): void {
+        this.currentStep = "level";
+        const localMode = isLocalCoopTestingMode();
+        this.subtitle.text = localMode
+            ? "Choose a local level"
+            : "Choose an online level";
+        this.onlineButton.visible = false;
+        this.localButton.visible = false;
+        this.level1Button.visible = true;
+        this.level2Button.visible = true;
+        this.backButton.visible = true;
+    }
+
+    protected handleLevelSelection(level: "level1" | "level2"): void {
+        if (isLocalCoopTestingMode()) {
+            this.sceneManager.changeToScene(level === "level1" ? Level1 : Level2);
+            return;
+        }
+
+        if (FirebaseManager.state.mySlot === 0) {
+            this.sceneManager.changeToScene(LobbyScene, {
+                selectedLevel: level,
+                forceHostRoom: !this.hasRoomCodeInHash()
+            });
+            return;
+        }
+
+        if (FirebaseManager.state.mySlot === 1 && !this.levelLaunchRequested) {
+            this.levelLaunchRequested = true;
+            FirebaseManager.selectLevel(level).catch(() => {
+                this.levelLaunchRequested = false;
+            });
+        }
+    }
+
+    protected hasRoomCodeInHash(): boolean {
+        return /room=[A-Z0-9]{6}/.test(window.location.hash);
     }
 
     protected createLevelButton(position: Vec2, text: string): Button {
