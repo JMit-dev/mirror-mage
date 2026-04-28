@@ -84,8 +84,8 @@ export default class P2PManager {
             await this._putSignal("answer", { sdp: answer.sdp, type: answer.type });
         }
 
-        // Poll Firebase for the remote peer's ICE candidates every second
-        this._icePollHandle = setInterval(() => this._fetchRemoteCandidates(), 1000);
+        // Poll Firebase for the remote peer's ICE candidates frequently so connection establishes fast
+        this._icePollHandle = setInterval(() => this._fetchRemoteCandidates(), 300);
     }
 
     public static disconnect(): void {

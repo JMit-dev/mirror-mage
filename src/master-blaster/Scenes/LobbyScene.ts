@@ -7,6 +7,7 @@ import Color from "../../Wolfie2D/Utils/Color";
 import FirebaseManager from "../Firebase/FirebaseManager";
 import { MBControls } from "../MBControls";
 import MainMenu from "./MainMenu";
+import P2PManager from "../Network/P2PManager";
 
 const LAYER = "LOBBY";
 
@@ -19,6 +20,7 @@ export default class LobbyScene extends Scene {
     private statusLabel!: Label;
     private startRequested: boolean = false;
     private selectedLevel: "level1" | "level2" | "" = "";
+    private p2pPreConnectStarted: boolean = false;
 
     public initScene(init: Record<string, any>): void {
         this.selectedLevel = init?.selectedLevel === "level1" || init?.selectedLevel === "level2"
@@ -154,6 +156,14 @@ export default class LobbyScene extends Scene {
             this.statusLabel.text = s.errorMsg || "Could not connect to Firebase.";
             this.statusLabel.textColor = new Color(220, 80, 80);
             return;
+        }
+
+        // Start P2P as soon as both players are present — gives the WebRTC connection
+        // time to establish before the level scene loads, avoiding the Firebase fallback jitter.
+        if (s.playerCount >= 2 && !this.p2pPreConnectStarted && s.mySlot !== 0 && s.roomCode) {
+            this.p2pPreConnectStarted = true;
+            P2PManager.connect(s.roomCode, s.mySlot === 1)
+                .catch((e) => console.warn("[P2P] pre-connect failed:", e));
         }
 
         // Ready — let host start
