@@ -74,7 +74,7 @@ export default class PlayerController extends StateMachineAI {
     protected _isDead: boolean;
     protected _playerNumber: 1 | 2 = 1;
     protected _isLocalPlayer: boolean = true;
-    protected _currentSpell: SpellType;
+    protected _currentSpell: SpellType | null;
 
     // Remote input state — fed by MBLevel when P2P packets arrive
     private _remoteLeft: boolean = false;
@@ -94,7 +94,7 @@ export default class PlayerController extends StateMachineAI {
         this.speed = 400;
         this.velocity = Vec2.ZERO;
         this.isDead = false;
-        this._currentSpell = SpellType.BASIC;
+        this._currentSpell = null;
 
         this.maxHealth = 1;
         this.health = 1;
@@ -168,7 +168,7 @@ export default class PlayerController extends StateMachineAI {
 
     public get playerNumber(): 1 | 2 { return this._playerNumber; }
     public get isLocalPlayer(): boolean { return this._isLocalPlayer; }
-    public get currentSpell(): SpellType { return this._currentSpell; }
+    public get currentSpell(): SpellType | null { return this._currentSpell; }
 
     public update(deltaT: number): void {
         super.update(deltaT);
@@ -228,7 +228,7 @@ export default class PlayerController extends StateMachineAI {
     public respawn(position: Vec2): void {
         this.isDead = false;
         this.velocity = Vec2.ZERO;
-        this._currentSpell = SpellType.BASIC;
+        this._currentSpell = null;
         this.owner.position.copy(position);
         this.owner.rotation = 0;
         this.owner.animation.stop();

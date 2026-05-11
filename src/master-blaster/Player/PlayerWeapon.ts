@@ -20,7 +20,6 @@ export default class PlayerWeapon {
     public static readonly PROJECTILE_SPRITE_KEY = "PLAYER_PROJECTILE";
     public static readonly PROJECTILE_SPRITE_PATH = "game_assets/spritesheets/base spell.png";
 
-    protected static readonly PROJECTILE_SPEED = 250;
     protected static readonly PROJECTILE_LIFETIME = 3;
     protected static readonly PROJECTILE_COOLDOWN = 2;
     protected static readonly PROJECTILE_TARGET_SIZE = 16;
@@ -67,11 +66,15 @@ export default class PlayerWeapon {
                 continue;
             }
 
-            projectile.sprite.move(projectile.direction.scaled(PlayerWeapon.PROJECTILE_SPEED * deltaT));
+            projectile.sprite.move(projectile.direction.scaled(SpellSpecs[projectile.spellType].projectileSpeed * deltaT));
         }
     }
 
-    public tryFire(playerPosition: Vec2, playerHalfWidth: number, facingLeft: boolean, spellType: SpellType): boolean {
+    public tryFire(playerPosition: Vec2, playerHalfWidth: number, facingLeft: boolean, spellType: SpellType | null): boolean {
+        if (spellType === null) {
+            return false;
+        }
+
         if (this.cooldownRemaining > 0) {
             return false;
         }

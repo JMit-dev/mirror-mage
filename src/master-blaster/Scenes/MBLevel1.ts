@@ -15,6 +15,11 @@ import { GraphicType } from "../../Wolfie2D/Nodes/Graphics/GraphicTypes";
 import Color from "../../Wolfie2D/Utils/Color";
 import { SpellSpriteKey, SpellSpritePath, SpellType } from "../Spells/SpellTypes";
 
+type SpellPickup = {
+    sprite: Sprite;
+    spellType: SpellType;
+};
+
 /**
  * The first level for Master Blaster - should be the one with the grass and the clouds.
  */
@@ -59,12 +64,14 @@ export default class Level1 extends MBLevel {
     protected static readonly ENEMY_FIRE_COOLDOWN = 2;
     protected static readonly ENEMY_SPELL_SPAWN_OFFSET = new Vec2(-20, 0);
     protected static readonly ENEMY_SPELL_BOUNCE_COOLDOWN = 0.15;
+    protected static readonly SPELL_PICKUP_SCALE = 0.3;
+    protected static readonly ICE_PICKUP_POSITION = new Vec2(360, 304);
     protected static readonly FIRE_PICKUP_POSITION = new Vec2(592, 304);
-    protected static readonly FIRE_PICKUP_SCALE = 0.3;
+    protected static readonly LIGHTNING_PICKUP_POSITION = new Vec2(840, 304);
 
     protected enemy!: Sprite;
     protected enemySpell!: Sprite;
-    protected firePickup!: Sprite;
+    protected spellPickups: Array<SpellPickup> = [];
     protected enemySpellActive: boolean = false;
     protected enemySpellLifetimeRemaining: number = 0;
     protected enemyFireCooldownRemaining: number = 0;
@@ -110,6 +117,10 @@ export default class Level1 extends MBLevel {
         this.load.image(PlayerWeapon.PROJECTILE_SPRITE_KEY, PlayerWeapon.PROJECTILE_SPRITE_PATH);
         this.load.image(SpellSpriteKey.FIRE_PROJECTILE, SpellSpritePath.FIRE_PROJECTILE);
         this.load.image(SpellSpriteKey.FIRE_PICKUP, SpellSpritePath.FIRE_PICKUP);
+        this.load.image(SpellSpriteKey.ICE_PROJECTILE, SpellSpritePath.ICE_PROJECTILE);
+        this.load.image(SpellSpriteKey.ICE_PICKUP, SpellSpritePath.ICE_PICKUP);
+        this.load.image(SpellSpriteKey.LIGHTNING_PROJECTILE, SpellSpritePath.LIGHTNING_PROJECTILE);
+        this.load.image(SpellSpriteKey.LIGHTNING_PICKUP, SpellSpritePath.LIGHTNING_PICKUP);
         this.load.image(MBLevel.MIRROR_SPRITE_KEY, MBLevel.MIRROR_SPRITE_PATH);
         this.load.image(MBLevel.STOCK_ICON_KEY, MBLevel.STOCK_ICON_PATH);
         this.load.image(Level1.ENEMY_SPRITE_KEY, Level1.ENEMY_SPRITE_PATH);
@@ -130,6 +141,10 @@ export default class Level1 extends MBLevel {
         this.load.keepImage(PlayerWeapon.PROJECTILE_SPRITE_KEY);
         this.load.keepImage(SpellSpriteKey.FIRE_PROJECTILE);
         this.load.keepImage(SpellSpriteKey.FIRE_PICKUP);
+        this.load.keepImage(SpellSpriteKey.ICE_PROJECTILE);
+        this.load.keepImage(SpellSpriteKey.ICE_PICKUP);
+        this.load.keepImage(SpellSpriteKey.LIGHTNING_PROJECTILE);
+        this.load.keepImage(SpellSpriteKey.LIGHTNING_PICKUP);
         this.load.keepImage(MBLevel.MIRROR_SPRITE_KEY);
         this.load.keepImage(MBLevel.STOCK_ICON_KEY);
         this.load.keepImage(Level1.ENEMY_SPRITE_KEY);
@@ -143,13 +158,9 @@ export default class Level1 extends MBLevel {
         this.addLayer(Level1.SKY_LAYER_KEY, -10);
         this.addLayer(Level1.GROUND_BACKGROUND_LAYER_KEY, -9);
         super.startScene();
-        (this.player.ai as PlayerController).equipSpell(SpellType.BASIC);
-        if (this.player2 !== undefined) {
-            (this.player2.ai as PlayerController).equipSpell(SpellType.BASIC);
-        }
         this.initializeSkyBackground();
         this.initializeGroundBackground();
-        this.initializeFirePickup();
+        this.initializeSpellPickups();
         if (this.devTestingMode) {
             this.initializeEnemy();
         }
@@ -159,30 +170,42 @@ export default class Level1 extends MBLevel {
 
     public updateScene(deltaT: number): void {
         super.updateScene(deltaT);
-        this.updateFirePickup();
+        this.updateSpellPickups();
         this.updateEnemy(deltaT);
     }
 
-    protected initializeFirePickup(): void {
-        this.firePickup = this.add.sprite(SpellSpriteKey.FIRE_PICKUP, MBLayers.PRIMARY);
-        this.firePickup.scale.set(Level1.FIRE_PICKUP_SCALE, Level1.FIRE_PICKUP_SCALE);
-        this.firePickup.position.copy(Level1.FIRE_PICKUP_POSITION);
+    protected initializeSpellPickups(): void {
+        this.spellPickups = [
+            this.createSpellPickup(SpellSpriteKey.ICE_PICKUP, SpellType.ICE, Level1.ICE_PICKUP_POSITION),
+            this.createSpellPickup(SpellSpriteKey.FIRE_PICKUP, SpellType.FIRE, Level1.FIRE_PICKUP_POSITION),
+            this.createSpellPickup(SpellSpriteKey.LIGHTNING_PICKUP, SpellType.LIGHTNING, Level1.LIGHTNING_PICKUP_POSITION),
+        ];
     }
 
-    protected updateFirePickup(): void {
-        if (!this.firePickup.visible) {
-            return;
-        }
+    protected createSpellPickup(spriteKey: string, spellType: SpellType, position: Vec2): SpellPickup {
+        const sprite = this.add.sprite(spriteKey, MBLayers.PRIMARY);
+        sprite.scale.set(Level1.SPELL_PICKUP_SCALE, Level1.SPELL_PICKUP_SCALE);
+        sprite.position.copy(position);
 
-        if (this.firePickup.boundary.overlapArea(this.player.boundary) > 0) {
-            (this.player.ai as PlayerController).equipSpell(SpellType.FIRE);
-            this.firePickup.visible = false;
-            return;
-        }
+        return {sprite, spellType};
+    }
 
-        if (this.player2 !== undefined && this.firePickup.boundary.overlapArea(this.player2.boundary) > 0) {
-            (this.player2.ai as PlayerController).equipSpell(SpellType.FIRE);
-            this.firePickup.visible = false;
+    protected updateSpellPickups(): void {
+        for (const pickup of this.spellPickups) {
+            if (!pickup.sprite.visible) {
+                continue;
+            }
+
+            if (pickup.sprite.boundary.overlapArea(this.player.boundary) > 0) {
+                (this.player.ai as PlayerController).equipSpell(pickup.spellType);
+                pickup.sprite.visible = false;
+                continue;
+            }
+
+            if (this.player2 !== undefined && pickup.sprite.boundary.overlapArea(this.player2.boundary) > 0) {
+                (this.player2.ai as PlayerController).equipSpell(pickup.spellType);
+                pickup.sprite.visible = false;
+            }
         }
     }
 
