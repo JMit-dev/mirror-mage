@@ -38,63 +38,63 @@ export default class LobbyScene extends Scene {
 
         // Title
         const title = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y - 290),
+            position: new Vec2(half.x, half.y - 240),
             text: "MIRROR MAGE",
         });
-        title.textColor = Color.WHITE;
+        title.textColor = Color.BLACK;
         title.fontSize = 64;
         title.font = "PixelSimple";
 
         // Room code header
         const codeHeader = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y - 170),
+            position: new Vec2(half.x, half.y - 160),
             text: "ROOM CODE",
         });
-        codeHeader.textColor = new Color(160, 160, 210);
+        codeHeader.textColor = new Color(38, 32, 70);
         codeHeader.fontSize = 22;
 
         // Room code — large and gold
         this.roomCodeLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y - 100),
+            position: new Vec2(half.x, half.y - 95),
             text: "------",
         });
-        this.roomCodeLabel.textColor = new Color(255, 215, 0);
+        this.roomCodeLabel.textColor = new Color(88, 72, 142);
         this.roomCodeLabel.fontSize = 88;
         this.roomCodeLabel.font = "PixelSimple";
 
         // Share URL
         const urlHeader = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y + 10),
+            position: new Vec2(half.x, half.y + 5),
             text: "Share this link:",
         });
-        urlHeader.textColor = new Color(160, 160, 160);
+        urlHeader.textColor = new Color(45, 45, 55);
         urlHeader.fontSize = 18;
 
         this.urlLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y + 45),
+            position: new Vec2(half.x, half.y + 40),
             text: "Loading...",
         });
-        this.urlLabel.textColor = new Color(120, 200, 255);
+        this.urlLabel.textColor = new Color(35, 105, 165);
         this.urlLabel.fontSize = 18;
 
         // Player count
         this.playerCountLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y + 120),
+            position: new Vec2(half.x, half.y + 105),
             text: "0 / 2  players",
         });
-        this.playerCountLabel.textColor = Color.WHITE;
+        this.playerCountLabel.textColor = Color.BLACK;
         this.playerCountLabel.fontSize = 32;
 
         // Slot indicators
         this.slot1Label = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x - 160, half.y + 195),
+            position: new Vec2(half.x - 160, half.y + 170),
             text: "P1  [      ]",
         });
         this.slot1Label.textColor = new Color(80, 80, 80);
         this.slot1Label.fontSize = 26;
 
         this.slot2Label = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x + 160, half.y + 195),
+            position: new Vec2(half.x + 160, half.y + 170),
             text: "P2  [      ]",
         });
         this.slot2Label.textColor = new Color(80, 80, 80);
@@ -102,7 +102,7 @@ export default class LobbyScene extends Scene {
 
         // Status / start prompt
         this.statusLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y + 265),
+            position: new Vec2(half.x, half.y + 230),
             text: "Waiting for players...",
         });
         this.statusLabel.textColor = new Color(140, 140, 140);

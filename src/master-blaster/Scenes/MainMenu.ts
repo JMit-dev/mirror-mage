@@ -1,5 +1,6 @@
 import Vec2 from "../../Wolfie2D/DataTypes/Vec2";
 import Input from "../../Wolfie2D/Input/Input";
+import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import Button from "../../Wolfie2D/Nodes/UIElements/Button";
 import Label from "../../Wolfie2D/Nodes/UIElements/Label";
 import { UIElementType } from "../../Wolfie2D/Nodes/UIElements/UIElementTypes";
@@ -20,6 +21,10 @@ export const MenuLayers = {
 type MenuStep = "mode" | "level";
 
 export default class MainMenu extends Scene {
+    private static readonly TITLE_LOGO_KEY = "TITLE_LOGO";
+    private static readonly TITLE_LOGO_PATH = "game_assets/spritesheets/Logo For Title Screen.png";
+    private static readonly TITLE_LOGO_SCALE = 0.82;
+
     private levelLaunchRequested: boolean = false;
     private subtitle!: Label;
     private onlineButton!: Button;
@@ -29,6 +34,10 @@ export default class MainMenu extends Scene {
     private backButton!: Button;
     private currentStep: MenuStep = "mode";
     private pendingMode: typeof RuntimeModeValue[keyof typeof RuntimeModeValue] = RuntimeModeValue.DEFAULT;
+
+    public loadScene(): void {
+        this.load.image(MainMenu.TITLE_LOGO_KEY, MainMenu.TITLE_LOGO_PATH);
+    }
 
     public startScene(): void {
         Input.enableInput();
@@ -40,17 +49,14 @@ export default class MainMenu extends Scene {
         this.viewport.setFocus(size);
         this.viewport.setZoomLevel(1);
 
-        const title = <Label>this.add.uiElement(UIElementType.LABEL, MenuLayers.MAIN, {position: new Vec2(size.x, size.y - 180), text: "Mirror Mage"});
-        title.font = "PixelSimple";
-        title.fontSize = 72;
-        title.textColor = Color.WHITE;
-        title.backgroundColor = Color.TRANSPARENT;
-        title.borderColor = Color.TRANSPARENT;
+        const titleLogo = <Sprite>this.add.sprite(MainMenu.TITLE_LOGO_KEY, MenuLayers.MAIN);
+        titleLogo.position.copy(new Vec2(size.x, size.y - 120));
+        titleLogo.scale.set(MainMenu.TITLE_LOGO_SCALE, MainMenu.TITLE_LOGO_SCALE);
 
-        this.subtitle = <Label>this.add.uiElement(UIElementType.LABEL, MenuLayers.MAIN, {position: new Vec2(size.x, size.y - 110), text: ""});
+        this.subtitle = <Label>this.add.uiElement(UIElementType.LABEL, MenuLayers.MAIN, {position: new Vec2(size.x, size.y + 20), text: ""});
         this.subtitle.font = "PixelSimple";
         this.subtitle.fontSize = 28;
-        this.subtitle.textColor = Color.WHITE;
+        this.subtitle.textColor = Color.BLACK;
         this.subtitle.backgroundColor = Color.TRANSPARENT;
         this.subtitle.borderColor = Color.TRANSPARENT;
 
@@ -80,8 +86,8 @@ export default class MainMenu extends Scene {
     }
 
     protected createModeControls(size: Vec2): void {
-        this.onlineButton = this.createModeButton(new Vec2(size.x, size.y - 10), "Online");
-        this.localButton = this.createModeButton(new Vec2(size.x, size.y + 80), "Local");
+        this.onlineButton = this.createModeButton(new Vec2(size.x, size.y + 100), "Online");
+        this.localButton = this.createModeButton(new Vec2(size.x, size.y + 190), "Local");
         this.localButton.onClick = () => {
             this.pendingMode = RuntimeModeValue.LOCAL_COOP_TESTING;
             this.showLevelMenu();
@@ -93,20 +99,20 @@ export default class MainMenu extends Scene {
     }
 
     protected createLevelControls(size: Vec2): void {
-        this.level1Button = this.createLevelButton(new Vec2(size.x, size.y), "Level 1");
+        this.level1Button = this.createLevelButton(new Vec2(size.x - 130, size.y + 130), "Level 1");
         this.level1Button.onClick = () => this.handleLevelSelection("level1");
 
-        this.level2Button = this.createLevelButton(new Vec2(size.x, size.y + 90), "Level 2");
+        this.level2Button = this.createLevelButton(new Vec2(size.x + 130, size.y + 130), "Level 2");
         this.level2Button.onClick = () => this.handleLevelSelection("level2");
 
-        this.backButton = this.createModeButton(new Vec2(size.x, size.y + 190), "Back");
+        this.backButton = this.createModeButton(new Vec2(size.x, size.y + 220), "Back");
         this.backButton.onClick = () => this.showModeMenu();
     }
 
     protected createModeButton(position: Vec2, text: string): Button {
         const button = <Button>this.add.uiElement(UIElementType.BUTTON, MenuLayers.MAIN, {position, text});
-        button.backgroundColor = new Color(34, 32, 52);
-        button.borderColor = Color.WHITE;
+        button.backgroundColor = new Color(88, 72, 142);
+        button.borderColor = new Color(38, 32, 70);
         button.borderRadius = 0;
         button.borderWidth = 2;
         button.textColor = Color.WHITE;
@@ -145,7 +151,11 @@ export default class MainMenu extends Scene {
         setRuntimeMode(localMode ? RuntimeModeValue.LOCAL_COOP_TESTING : RuntimeModeValue.DEFAULT);
 
         if (localMode) {
-            this.sceneManager.changeToScene(level === "level1" ? Level1 : Level2);
+            if (level === "level1") {
+                this.sceneManager.changeToScene(Level1);
+            } else {
+                this.sceneManager.changeToScene(Level2);
+            }
             return;
         }
 
@@ -170,8 +180,8 @@ export default class MainMenu extends Scene {
 
     protected createLevelButton(position: Vec2, text: string): Button {
         const button = <Button>this.add.uiElement(UIElementType.BUTTON, MenuLayers.MAIN, {position, text});
-        button.backgroundColor = new Color(34, 32, 52);
-        button.borderColor = Color.WHITE;
+        button.backgroundColor = new Color(88, 72, 142);
+        button.borderColor = new Color(38, 32, 70);
         button.borderRadius = 0;
         button.borderWidth = 2;
         button.textColor = Color.WHITE;
