@@ -9,16 +9,10 @@ import MBLevel2 from "./MBLevel2";
 import { GameEventType } from "../../Wolfie2D/Events/GameEventType";
 import PlayerWeapon from "../Player/PlayerWeapon";
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
-import PlayerController from "../Player/PlayerController";
 import OrthogonalTilemap from "../../Wolfie2D/Nodes/Tilemaps/OrthogonalTilemap";
 import { GraphicType } from "../../Wolfie2D/Nodes/Graphics/GraphicTypes";
 import Color from "../../Wolfie2D/Utils/Color";
-import { SpellSpriteKey, SpellSpritePath, SpellType } from "../Spells/SpellTypes";
-
-type SpellPickup = {
-    sprite: Sprite;
-    spellType: SpellType;
-};
+import { SpellSpriteKey, SpellSpritePath } from "../Spells/SpellTypes";
 
 /**
  * The first level for Master Blaster - should be the one with the grass and the clouds.
@@ -64,14 +58,8 @@ export default class Level1 extends MBLevel {
     protected static readonly ENEMY_FIRE_COOLDOWN = 2;
     protected static readonly ENEMY_SPELL_SPAWN_OFFSET = new Vec2(-20, 0);
     protected static readonly ENEMY_SPELL_BOUNCE_COOLDOWN = 0.15;
-    protected static readonly SPELL_PICKUP_SCALE = 0.3;
-    protected static readonly ICE_PICKUP_POSITION = new Vec2(360, 304);
-    protected static readonly FIRE_PICKUP_POSITION = new Vec2(592, 304);
-    protected static readonly LIGHTNING_PICKUP_POSITION = new Vec2(840, 304);
-
     protected enemy!: Sprite;
     protected enemySpell!: Sprite;
-    protected spellPickups: Array<SpellPickup> = [];
     protected enemySpellActive: boolean = false;
     protected enemySpellLifetimeRemaining: number = 0;
     protected enemyFireCooldownRemaining: number = 0;
@@ -160,7 +148,7 @@ export default class Level1 extends MBLevel {
         super.startScene();
         this.initializeSkyBackground();
         this.initializeGroundBackground();
-        this.initializeSpellPickups();
+        this.initializePowerups();
         if (this.devTestingMode) {
             this.initializeEnemy();
         }
@@ -170,43 +158,7 @@ export default class Level1 extends MBLevel {
 
     public updateScene(deltaT: number): void {
         super.updateScene(deltaT);
-        this.updateSpellPickups();
         this.updateEnemy(deltaT);
-    }
-
-    protected initializeSpellPickups(): void {
-        this.spellPickups = [
-            this.createSpellPickup(SpellSpriteKey.ICE_PICKUP, SpellType.ICE, Level1.ICE_PICKUP_POSITION),
-            this.createSpellPickup(SpellSpriteKey.FIRE_PICKUP, SpellType.FIRE, Level1.FIRE_PICKUP_POSITION),
-            this.createSpellPickup(SpellSpriteKey.LIGHTNING_PICKUP, SpellType.LIGHTNING, Level1.LIGHTNING_PICKUP_POSITION),
-        ];
-    }
-
-    protected createSpellPickup(spriteKey: string, spellType: SpellType, position: Vec2): SpellPickup {
-        const sprite = this.add.sprite(spriteKey, MBLayers.PRIMARY);
-        sprite.scale.set(Level1.SPELL_PICKUP_SCALE, Level1.SPELL_PICKUP_SCALE);
-        sprite.position.copy(position);
-
-        return {sprite, spellType};
-    }
-
-    protected updateSpellPickups(): void {
-        for (const pickup of this.spellPickups) {
-            if (!pickup.sprite.visible) {
-                continue;
-            }
-
-            if (pickup.sprite.boundary.overlapArea(this.player.boundary) > 0) {
-                (this.player.ai as PlayerController).equipSpell(pickup.spellType);
-                pickup.sprite.visible = false;
-                continue;
-            }
-
-            if (this.player2 !== undefined && pickup.sprite.boundary.overlapArea(this.player2.boundary) > 0) {
-                (this.player2.ai as PlayerController).equipSpell(pickup.spellType);
-                pickup.sprite.visible = false;
-            }
-        }
     }
 
     protected initializeEnemy(): void {

@@ -29,6 +29,7 @@ export const SpellSpritePath = {
 
 export interface SpellSpec {
     projectileSpriteKey: string;
+    pickupSpriteKey?: string;
     projectileSpeed: number;
 }
 
@@ -39,14 +40,17 @@ export const SpellSpecs: Record<SpellType, SpellSpec> = {
     },
     [SpellType.FIRE]: {
         projectileSpriteKey: SpellSpriteKey.FIRE_PROJECTILE,
+        pickupSpriteKey: SpellSpriteKey.FIRE_PICKUP,
         projectileSpeed: 250
     },
     [SpellType.ICE]: {
         projectileSpriteKey: SpellSpriteKey.ICE_PROJECTILE,
+        pickupSpriteKey: SpellSpriteKey.ICE_PICKUP,
         projectileSpeed: 160
     },
     [SpellType.LIGHTNING]: {
         projectileSpriteKey: SpellSpriteKey.LIGHTNING_PROJECTILE,
+        pickupSpriteKey: SpellSpriteKey.LIGHTNING_PICKUP,
         projectileSpeed: 520
     }
 };

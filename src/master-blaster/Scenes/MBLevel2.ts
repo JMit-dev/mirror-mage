@@ -1,7 +1,6 @@
 import AABB from "../../Wolfie2D/DataTypes/Shapes/AABB";
 import Vec2 from "../../Wolfie2D/DataTypes/Vec2";
 import MBLevel from "./MBLevel";
-import { MBLayers } from "./MBLevel";
 import MainMenu from "./MainMenu";
 import { GameEventType } from "../../Wolfie2D/Events/GameEventType";
 
@@ -9,9 +8,7 @@ import Viewport from "../../Wolfie2D/SceneGraph/Viewport";
 import RenderingManager from "../../Wolfie2D/Rendering/RenderingManager";
 import SceneManager from "../../Wolfie2D/Scene/SceneManager";
 import PlayerWeapon from "../Player/PlayerWeapon";
-import { SpellSpriteKey, SpellSpritePath, SpellType } from "../Spells/SpellTypes";
-import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
-import PlayerController from "../Player/PlayerController";
+import { SpellSpriteKey, SpellSpritePath } from "../Spells/SpellTypes";
 
 /**
  * The second level for the Master Blaster. It should be the goose dungeon / cave.
@@ -19,8 +16,6 @@ import PlayerController from "../Player/PlayerController";
 export default class Level2 extends MBLevel {
     protected static readonly SCALE_FACTOR = 1.5;
     protected static readonly LEVEL_CENTER = new Vec2(600, 300);
-    protected static readonly FIRE_PICKUP_POSITION = Level2.LEVEL_CENTER;
-    protected static readonly FIRE_PICKUP_SCALE = 0.3;
 
     public static readonly PLAYER_SPAWN  = new Vec2(432, 408);
     public static readonly PLAYER2_SPAWN = new Vec2(768, 408);
@@ -47,8 +42,6 @@ export default class Level2 extends MBLevel {
     public static readonly DEATH_AUDIO_PATH = "game_assets/sounds/death.wav";
 
     public static readonly LEVEL_END = new AABB(new Vec2(224, 232), new Vec2(24, 16));
-
-    protected firePickup!: Sprite;
 
     public constructor(viewport: Viewport, sceneManager: SceneManager, renderingManager: RenderingManager, options: Record<string, any>) {
         super(viewport, sceneManager, renderingManager, options);
@@ -90,6 +83,10 @@ export default class Level2 extends MBLevel {
         this.load.image(PlayerWeapon.PROJECTILE_SPRITE_KEY, PlayerWeapon.PROJECTILE_SPRITE_PATH);
         this.load.image(SpellSpriteKey.FIRE_PROJECTILE, SpellSpritePath.FIRE_PROJECTILE);
         this.load.image(SpellSpriteKey.FIRE_PICKUP, SpellSpritePath.FIRE_PICKUP);
+        this.load.image(SpellSpriteKey.ICE_PROJECTILE, SpellSpritePath.ICE_PROJECTILE);
+        this.load.image(SpellSpriteKey.ICE_PICKUP, SpellSpritePath.ICE_PICKUP);
+        this.load.image(SpellSpriteKey.LIGHTNING_PROJECTILE, SpellSpritePath.LIGHTNING_PROJECTILE);
+        this.load.image(SpellSpriteKey.LIGHTNING_PICKUP, SpellSpritePath.LIGHTNING_PICKUP);
         this.load.image(MBLevel.MIRROR_SPRITE_KEY, MBLevel.MIRROR_SPRITE_PATH);
         this.load.image(MBLevel.STOCK_ICON_KEY, MBLevel.STOCK_ICON_PATH);
         // Level2-specific music
@@ -105,6 +102,10 @@ export default class Level2 extends MBLevel {
         this.load.keepImage(PlayerWeapon.PROJECTILE_SPRITE_KEY);
         this.load.keepImage(SpellSpriteKey.FIRE_PROJECTILE);
         this.load.keepImage(SpellSpriteKey.FIRE_PICKUP);
+        this.load.keepImage(SpellSpriteKey.ICE_PROJECTILE);
+        this.load.keepImage(SpellSpriteKey.ICE_PICKUP);
+        this.load.keepImage(SpellSpriteKey.LIGHTNING_PROJECTILE);
+        this.load.keepImage(SpellSpriteKey.LIGHTNING_PICKUP);
         this.load.keepImage(MBLevel.MIRROR_SPRITE_KEY);
         this.load.keepImage(MBLevel.STOCK_ICON_KEY);
         this.load.keepAudio(this.jumpAudioKey);
@@ -114,13 +115,12 @@ export default class Level2 extends MBLevel {
 
     public startScene(): void {
         super.startScene();
-        this.initializeFirePickup();
+        this.initializePowerups();
         this.nextLevel = MainMenu;
     }
 
     public updateScene(deltaT: number): void {
         super.updateScene(deltaT);
-        this.updateFirePickup();
     }
 
     protected initializeUI(): void {
@@ -142,29 +142,6 @@ export default class Level2 extends MBLevel {
 
     protected initializeLevelEnds(): void {
         // Level 2 is an arena, so it has no level-complete trigger.
-    }
-
-    protected initializeFirePickup(): void {
-        this.firePickup = this.add.sprite(SpellSpriteKey.FIRE_PICKUP, MBLayers.PRIMARY);
-        this.firePickup.scale.set(Level2.FIRE_PICKUP_SCALE, Level2.FIRE_PICKUP_SCALE);
-        this.firePickup.position.copy(Level2.FIRE_PICKUP_POSITION);
-    }
-
-    protected updateFirePickup(): void {
-        if (!this.firePickup.visible) {
-            return;
-        }
-
-        if (this.firePickup.boundary.overlapArea(this.player.boundary) > 0) {
-            (this.player.ai as PlayerController).equipSpell(SpellType.FIRE);
-            this.firePickup.visible = false;
-            return;
-        }
-
-        if (this.player2 !== undefined && this.firePickup.boundary.overlapArea(this.player2.boundary) > 0) {
-            (this.player2.ai as PlayerController).equipSpell(SpellType.FIRE);
-            this.firePickup.visible = false;
-        }
     }
 
 }

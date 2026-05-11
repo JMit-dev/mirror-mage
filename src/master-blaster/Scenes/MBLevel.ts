@@ -32,6 +32,13 @@ import { isDevTestingMode, isLocalCoopTestingMode } from "../config/RuntimeMode"
 import { consumeMirrorDurability, getHitMirrorOwner } from "../Spells/MirrorSpellUtils";
 import P2PManager from "../Network/P2PManager";
 import { PacketType, EventId, StatePacket, decodeState, encodeState, encodeEvent, decodeEvent } from "../Network/NetPacket";
+import { SpellSpecs, SpellType } from "../Spells/SpellTypes";
+
+type SpellPowerup = {
+    sprite: Sprite;
+    spellType: SpellType;
+    spawnPosition: Vec2;
+};
 
 /**
  * A const object for the layer names
@@ -65,6 +72,11 @@ export default abstract class MBLevel extends Scene {
     protected static readonly STOCK_ICON_START_P1 = new Vec2(24, 24);
     protected static readonly STOCK_ICON_START_P2 = new Vec2(1104, 24);
     protected static readonly STOCK_ICON_SPACING = 24;
+    protected static readonly POWERUP_MAX_ACTIVE = 3;
+    protected static readonly POWERUP_RESPAWN_INTERVAL = 15;
+    protected static readonly POWERUP_SCALE = 0.3;
+    protected static readonly POWERUP_PLATFORM_Y_OFFSET = 16;
+    protected static readonly POWERUP_TYPES = [SpellType.FIRE, SpellType.ICE, SpellType.LIGHTNING];
 
     /** Overrride the factory manager */
     public add: MBFactoryManager;
@@ -129,6 +141,10 @@ export default abstract class MBLevel extends Scene {
     protected destructable!: OrthogonalTilemap;
     /** The wall layer of the tilemap */
     protected walls!: OrthogonalTilemap;
+
+    protected powerupSpawnPoints: Array<Vec2> = [];
+    protected activePowerups: Array<SpellPowerup> = [];
+    protected powerupRespawnTimer: number = MBLevel.POWERUP_RESPAWN_INTERVAL;
 
     /** Sound and music */
     protected levelMusicKey!: string;
@@ -235,12 +251,119 @@ export default abstract class MBLevel extends Scene {
             this.updateWeaponProjectiles(this.player2WeaponSystem, 2);
         }
 
+        this.updatePowerups(deltaT);
         this.syncMultiplayerState(deltaT);
 
         // Handle all game events
         while (this.receiver.hasNextEvent()) {
             this.handleEvent(this.receiver.getNextEvent());
         }
+    }
+
+    protected initializePowerups(): void {
+        this.powerupSpawnPoints = this.generatePlatformPowerupSpawnPoints();
+        this.activePowerups = [];
+        this.powerupRespawnTimer = MBLevel.POWERUP_RESPAWN_INTERVAL;
+
+        for (let i = 0; i < MBLevel.POWERUP_MAX_ACTIVE; i++) {
+            this.spawnRandomPowerup();
+        }
+    }
+
+    protected updatePowerups(deltaT: number): void {
+        for (let i = this.activePowerups.length - 1; i >= 0; i--) {
+            const powerup = this.activePowerups[i];
+            const pickedUpByPlayer1 = this.player !== undefined && powerup.sprite.boundary.overlapArea(this.player.boundary) > 0;
+            const pickedUpByPlayer2 = this.player2 !== undefined && powerup.sprite.boundary.overlapArea(this.player2.boundary) > 0;
+
+            if (!pickedUpByPlayer1 && !pickedUpByPlayer2) {
+                continue;
+            }
+
+            if (pickedUpByPlayer1) {
+                (this.player.ai as PlayerController).equipSpell(powerup.spellType);
+            } else if (pickedUpByPlayer2) {
+                (this.player2.ai as PlayerController).equipSpell(powerup.spellType);
+            }
+
+            powerup.sprite.destroy();
+            this.activePowerups.splice(i, 1);
+        }
+
+        if (this.activePowerups.length >= MBLevel.POWERUP_MAX_ACTIVE) {
+            this.powerupRespawnTimer = MBLevel.POWERUP_RESPAWN_INTERVAL;
+            return;
+        }
+
+        this.powerupRespawnTimer -= deltaT;
+        if (this.powerupRespawnTimer <= 0) {
+            this.spawnRandomPowerup();
+            this.powerupRespawnTimer = MBLevel.POWERUP_RESPAWN_INTERVAL;
+        }
+    }
+
+    protected generatePlatformPowerupSpawnPoints(): Array<Vec2> {
+        if (this.walls === undefined) {
+            return [];
+        }
+
+        const spawnPoints: Array<Vec2> = [];
+        const dimensions = this.walls.getDimensions();
+        const tileSize = this.walls.getTileSize();
+
+        for (let row = 1; row < dimensions.y; row++) {
+            for (let col = 0; col < dimensions.x; col++) {
+                const hasFloor = this.walls.isTileCollidable(col, row);
+                const hasAirAbove = !this.walls.isTileCollidable(col, row - 1);
+                const hasHeadroom = row < 2 || !this.walls.isTileCollidable(col, row - 2);
+
+                if (hasFloor && hasAirAbove && hasHeadroom) {
+                    spawnPoints.push(new Vec2(
+                        col * tileSize.x + tileSize.x / 2,
+                        row * tileSize.y - MBLevel.POWERUP_PLATFORM_Y_OFFSET
+                    ));
+                }
+            }
+        }
+
+        return spawnPoints;
+    }
+
+    protected spawnRandomPowerup(): boolean {
+        const availableSpawnPoints = this.powerupSpawnPoints.filter(point =>
+            this.activePowerups.every(powerup => powerup.spawnPosition.distanceSqTo(point) > 1)
+        );
+
+        if (availableSpawnPoints.length === 0) {
+            return false;
+        }
+
+        const availableSpellTypes = MBLevel.POWERUP_TYPES.filter(spellType =>
+            this.activePowerups.every(powerup => powerup.spellType !== spellType)
+        );
+
+        if (availableSpellTypes.length === 0) {
+            return false;
+        }
+
+        const spellType = availableSpellTypes[Math.floor(Math.random() * availableSpellTypes.length)];
+        const spriteKey = SpellSpecs[spellType].pickupSpriteKey;
+        if (spriteKey === undefined) {
+            return false;
+        }
+
+        const spawnPosition = availableSpawnPoints[Math.floor(Math.random() * availableSpawnPoints.length)];
+        const sprite = this.add.sprite(spriteKey, MBLayers.PRIMARY);
+        sprite.scale.set(MBLevel.POWERUP_SCALE, MBLevel.POWERUP_SCALE);
+        sprite.position.copy(spawnPosition);
+
+        this.activePowerups.push({
+            sprite,
+            spellType,
+            spawnPosition: spawnPosition.clone()
+        });
+
+        return true;
     }
 
     /**
