@@ -230,7 +230,8 @@ export default class Level1 extends MBLevel {
 
         if (this.enemySpellBounceCooldownRemaining === 0) {
             const hitMirrorPlayer = this.getMirrorHitPlayer(this.enemySpell);
-            if (hitMirrorPlayer !== null && this.damageMirror(hitMirrorPlayer)) {
+            if (hitMirrorPlayer !== null) {
+                this.damageMirror(hitMirrorPlayer);
                 this.bounceEnemySpellOffMirror();
             }
         }

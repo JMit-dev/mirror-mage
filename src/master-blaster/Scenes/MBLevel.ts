@@ -195,9 +195,7 @@ export default abstract class MBLevel extends Scene {
         this.initializeMirror();
         if ((this.localCoopTestingMode || !this.devTestingMode) && this.player2Spawn !== undefined) {
             this.initializePlayer2(this.playerSpriteKey);
-            if (!this.localCoopTestingMode) {
-                this.initializeMirror2();
-            }
+            this.initializeMirror2();
         }
 
         // Initialize the viewport - this must come after the player has been initialized
@@ -409,15 +407,16 @@ export default abstract class MBLevel extends Scene {
                 continue;
             }
 
-            const hitMirrorPlayer = this.getMirrorHitPlayer(projectile.sprite, ownerPlayerNum);
+            const projectileOwnerPlayerNum = projectile.reflectedOwnerPlayerNum ?? ownerPlayerNum;
+            const hitMirrorPlayer = this.getMirrorHitPlayer(projectile.sprite, projectileOwnerPlayerNum);
             if (hitMirrorPlayer !== null) {
                 this.damageMirror(hitMirrorPlayer);
                 this.sendNetEvent(EventId.MIRROR_HIT, hitMirrorPlayer);
-                weaponSystem.deactivateById(projectile.sprite.id);
+                weaponSystem.reflectById(projectile.sprite.id, hitMirrorPlayer);
                 continue;
             }
 
-            const hitPlayer = this.getHitPlayer(projectile.sprite, ownerPlayerNum);
+            const hitPlayer = this.getHitPlayer(projectile.sprite, projectileOwnerPlayerNum);
             if (hitPlayer !== null) {
                 this.damagePlayer(hitPlayer);
                 weaponSystem.deactivateById(projectile.sprite.id);
@@ -768,7 +767,9 @@ export default abstract class MBLevel extends Scene {
 
         this.mirror.visible = true;
         const playerController = this.player.ai as PlayerController;
-        if (playerController.isLocalPlayer) {
+        if (this.localCoopTestingMode) {
+            this.mirrorDirection = new Vec2(this.player.invertX ? -1 : 1, 0);
+        } else if (playerController.isLocalPlayer) {
             const mousePosition = Input.getGlobalMousePosition();
             const mouseDirection = this.player.position.dirTo(mousePosition);
             if (!mouseDirection.isZero()) {
@@ -798,7 +799,9 @@ export default abstract class MBLevel extends Scene {
         // Use mySlot to determine authority — more reliable than isLocalPlayer at scene init time
         const p2IsLocal = FirebaseManager.state.mySlot === 2 || FirebaseManager.state.mySlot === 0;
 
-        if (p2IsLocal) {
+        if (this.localCoopTestingMode) {
+            this.mirror2Direction = new Vec2(this.player2.invertX ? -1 : 1, 0);
+        } else if (p2IsLocal) {
             const mousePosition = Input.getGlobalMousePosition();
             const mouseDirection = this.player2.position.dirTo(mousePosition);
             if (!mouseDirection.isZero()) {

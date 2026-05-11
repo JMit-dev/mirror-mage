@@ -11,6 +11,7 @@ type ProjectileData = {
     lifetimeRemaining: number;
     active: boolean;
     spellType: SpellType;
+    reflectedOwnerPlayerNum: 1 | 2 | null;
 };
 
 /**
@@ -47,7 +48,8 @@ export default class PlayerWeapon {
                 direction: Vec2.RIGHT,
                 lifetimeRemaining: 0,
                 active: false,
-                spellType: SpellType.BASIC
+                spellType: SpellType.BASIC,
+                reflectedOwnerPlayerNum: null
             });
         }
     }
@@ -90,6 +92,7 @@ export default class PlayerWeapon {
 
         projectile.direction = direction;
         projectile.spellType = spellType;
+        projectile.reflectedOwnerPlayerNum = null;
         projectile.lifetimeRemaining = PlayerWeapon.PROJECTILE_LIFETIME;
         projectile.active = true;
         this.applyProjectileAppearance(projectile.sprite, SpellSpecs[spellType].projectileSpriteKey);
@@ -108,6 +111,21 @@ export default class PlayerWeapon {
         return this.projectiles;
     }
 
+    public reflectById(id: number, reflectedOwnerPlayerNum: 1 | 2): boolean {
+        const projectile = this.projectiles.find(entry => entry.sprite.id === id);
+        if (projectile === undefined || !projectile.active) {
+            return false;
+        }
+
+        projectile.direction = projectile.direction.scaled(-1);
+        projectile.reflectedOwnerPlayerNum = reflectedOwnerPlayerNum;
+        projectile.sprite.invertX = projectile.direction.x < 0;
+        projectile.sprite.position.add(projectile.direction.scaled(projectile.sprite.boundary.halfSize.x + PlayerWeapon.PROJECTILE_SPAWN_PADDING));
+        projectile.sprite._velocity.zero();
+        projectile.sprite.collidedWithTilemap = false;
+        return true;
+    }
+
     public deactivateById(id: number): void {
         const projectile = this.projectiles.find(entry => entry.sprite.id === id);
         if (projectile !== undefined) {
@@ -118,6 +136,7 @@ export default class PlayerWeapon {
     protected deactivateProjectile(projectile: ProjectileData): void {
         projectile.active = false;
         projectile.lifetimeRemaining = 0;
+        projectile.reflectedOwnerPlayerNum = null;
         projectile.sprite.visible = false;
         projectile.sprite.disablePhysics();
         projectile.sprite._velocity.zero();
