@@ -77,6 +77,7 @@ export default abstract class MBLevel extends Scene {
     protected static readonly POWERUP_SCALE = 0.3;
     protected static readonly POWERUP_PLATFORM_Y_OFFSET = 16;
     protected static readonly POWERUP_TYPES = [SpellType.FIRE, SpellType.ICE, SpellType.LIGHTNING];
+    protected static readonly FALL_DEATH_BLOCKS_BELOW_VIEW = 10;
 
     /** Overrride the factory manager */
     public add: MBFactoryManager;
@@ -249,6 +250,7 @@ export default abstract class MBLevel extends Scene {
             this.updateWeaponProjectiles(this.player2WeaponSystem, 2);
         }
 
+        this.updateFallDeaths();
         this.updatePowerups(deltaT);
         this.syncMultiplayerState(deltaT);
 
@@ -256,6 +258,33 @@ export default abstract class MBLevel extends Scene {
         while (this.receiver.hasNextEvent()) {
             this.handleEvent(this.receiver.getNextEvent());
         }
+    }
+
+    protected updateFallDeaths(): void {
+        const killY = this.getFallDeathY();
+
+        if (this.player !== undefined && this.player.boundary.top > killY) {
+            this.playDeathSound();
+            this.handlePlayerDeath(1);
+        }
+
+        if (this.player2 !== undefined && this.player2.boundary.top > killY) {
+            this.playDeathSound();
+            this.handlePlayerDeath(2);
+        }
+    }
+
+    protected playDeathSound(): void {
+        this.emitter.fireEvent(GameEventType.PLAY_SOUND, {key: this.deathAudioKey, loop: false, holdReference: false});
+    }
+
+    protected getFallDeathY(): number {
+        const view = this.viewport.getView();
+        const tileHeight = this.walls !== undefined
+            ? this.walls.getTileSize().y
+            : 32;
+
+        return view.bottom + tileHeight * MBLevel.FALL_DEATH_BLOCKS_BELOW_VIEW;
     }
 
     protected initializePowerups(): void {
