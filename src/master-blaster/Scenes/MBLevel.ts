@@ -204,13 +204,15 @@ export default abstract class MBLevel extends Scene {
         // Start the black screen fade out
         this.levelTransitionScreen.tweens.play("fadeOut");
 
-        // Kick off WebRTC P2P connection (non-blocking; falls back to Firebase until ready)
+        // Wire up P2P message handler and connect if not already pre-connected from lobby
         if (!this.devTestingMode && !this.localCoopTestingMode && FirebaseManager.state.mySlot !== 0) {
-            const isHost = FirebaseManager.state.mySlot === 1;
-            P2PManager.connect(FirebaseManager.state.roomCode, isHost)
-                .catch((e) => console.warn("[P2P] connect failed:", e));
             P2PManager.onMessage((data: ArrayBuffer) => this._handleNetPacket(data));
-
+            if (!P2PManager.isConnected) {
+                // Lobby didn't pre-connect (e.g. testing path) — connect now as fallback
+                const isHost = FirebaseManager.state.mySlot === 1;
+                P2PManager.connect(FirebaseManager.state.roomCode, isHost)
+                    .catch((e) => console.warn("[P2P] connect failed:", e));
+            }
             // Remote player AI stays disabled — position is driven by received packets,
             // not local physics, avoiding the teleport-vs-physics jitter conflict.
         }

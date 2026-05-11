@@ -151,11 +151,8 @@ export default class MainMenu extends Scene {
         setRuntimeMode(localMode ? RuntimeModeValue.LOCAL_COOP_TESTING : RuntimeModeValue.DEFAULT);
 
         if (localMode) {
-            if (level === "level1") {
-                this.sceneManager.changeToScene(Level1);
-            } else {
-                this.sceneManager.changeToScene(Level2);
-            }
+            if (level === "level1") this.sceneManager.changeToScene(Level1);
+            else this.sceneManager.changeToScene(Level2);
             return;
         }
 
