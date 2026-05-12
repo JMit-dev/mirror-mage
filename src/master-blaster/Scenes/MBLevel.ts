@@ -980,7 +980,7 @@ export default abstract class MBLevel extends Scene {
         }
     }
 
-    protected syncMultiplayerState(deltaT: number): void {
+    protected syncMultiplayerState(_deltaT: number): void {
         if (this.devTestingMode || FirebaseManager.state.mySlot === 0) {
             return;
         }
@@ -988,18 +988,8 @@ export default abstract class MBLevel extends Scene {
         if (P2PManager.isConnected) {
             this._sendLocalStateP2P();
             this._applyRemoteStateP2P();
-        } else {
-            // Firebase fallback while P2P is still connecting
-            this.networkPublishCooldown = Math.max(0, this.networkPublishCooldown - deltaT);
-            if (this.networkPublishCooldown === 0) {
-                this._publishLocalStateFirebase();
-                this.networkPublishCooldown = 0.05;
-            }
-            this._applyRemoteStateFirebase(1, this.player, this.lastRemotePlayer1Position);
-            if (this.player2 !== undefined) {
-                this._applyRemoteStateFirebase(2, this.player2, this.lastRemotePlayer2Position);
-            }
         }
+        // No fallback — only P2P. Game data waits until the DataChannel is open.
     }
 
     // -------------------------------------------------------------------------
