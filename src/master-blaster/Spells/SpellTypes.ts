@@ -20,11 +20,11 @@ export const SpellSpriteKey = {
 export const SpellSpritePath = {
     BASIC_PROJECTILE: "game_assets/spritesheets/base spell.png",
     FIRE_PROJECTILE: "game_assets/spritesheets/fire.png",
-    FIRE_PICKUP: "game_assets/spritesheets/fire.png",
+    FIRE_PICKUP: "game_assets/spritesheets/fire_power_up_256x256.png",
     ICE_PROJECTILE: "game_assets/spritesheets/ice.png",
-    ICE_PICKUP: "game_assets/spritesheets/ice.png",
+    ICE_PICKUP: "game_assets/spritesheets/ice_power_up_256x256.png",
     LIGHTNING_PROJECTILE: "game_assets/spritesheets/lighting.png",
-    LIGHTNING_PICKUP: "game_assets/spritesheets/lighting.png",
+    LIGHTNING_PICKUP: "game_assets/spritesheets/lightning_power_up_256x256.png",
 } as const;
 
 export interface SpellSpec {
