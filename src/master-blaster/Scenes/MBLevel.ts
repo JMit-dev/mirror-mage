@@ -88,6 +88,8 @@ export default abstract class MBLevel extends Scene {
     protected player2WeaponSystem!: PlayerWeapon;
     /** The key for the player's animated sprite */
     protected playerSpriteKey!: string;
+    /** The key for player two's animated sprite */
+    protected player2SpriteKey!: string;
     /** The animated sprites for both players */
     protected player!: AnimatedSprite;
     protected player2!: AnimatedSprite;
@@ -196,7 +198,7 @@ export default abstract class MBLevel extends Scene {
         this.initializePlayer(this.playerSpriteKey);
         this.initializeMirror();
         if ((this.localCoopTestingMode || !this.devTestingMode) && this.player2Spawn !== undefined) {
-            this.initializePlayer2(this.playerSpriteKey);
+            this.initializePlayer2(this.player2SpriteKey);
             this.initializeMirror2();
         }
 
@@ -745,9 +747,8 @@ export default abstract class MBLevel extends Scene {
         // Add the player to the scene
         this.player = this.add.animatedSprite(key, MBLayers.PRIMARY);
         const targetSize = MBLevel.PLAYER_TARGET_FRAME_SIZE;
-        const scaleX = targetSize / this.player.size.x;
-        const scaleY = targetSize / this.player.size.y;
-        this.player.scale.set(scaleX, scaleY);
+        const scale = targetSize / this.player.size.y;
+        this.player.scale.set(scale, scale);
         this.player.position.copy(this.playerSpawn);
 
         // Give the player physics
@@ -1004,9 +1005,8 @@ export default abstract class MBLevel extends Scene {
         }
         this.player2 = this.add.animatedSprite(key, MBLayers.PRIMARY);
         const targetSize = MBLevel.PLAYER_TARGET_FRAME_SIZE;
-        const scaleX = targetSize / this.player2.size.x;
-        const scaleY = targetSize / this.player2.size.y;
-        this.player2.scale.set(scaleX, scaleY);
+        const scale = targetSize / this.player2.size.y;
+        this.player2.scale.set(scale, scale);
         this.player2.position.copy(this.player2Spawn);
 
         this.player2.addPhysics(new AABB(this.player2.position.clone(), this.player2.boundary.getHalfSize().clone()));

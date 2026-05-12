@@ -25,8 +25,10 @@ export default class Level1 extends MBLevel {
 
     public static readonly PLAYER_SPAWN = new Vec2(454, 320);
     public static readonly PLAYER2_SPAWN = new Vec2(730, 320);
-    public static readonly PLAYER_SPRITE_KEY = "PLAYER_SPRITE_KEY";
-    public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/temp wizard.json";
+    public static readonly PLAYER_SPRITE_KEY = "PLAYER1_SPRITE_KEY";
+    public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/mage1.json";
+    public static readonly PLAYER2_SPRITE_KEY = "PLAYER2_SPRITE_KEY";
+    public static readonly PLAYER2_SPRITE_PATH = "game_assets/spritesheets/mage2.json";
     public static readonly ENEMY_SPRITE_KEY = "LEVEL1_ENEMY_SPRITE";
     public static readonly ENEMY_SPRITE_PATH = "game_assets/spritesheets/temp player 2.png";
     public static readonly ENEMY_SPELL_SPRITE_KEY = "LEVEL1_ENEMY_SPELL";
@@ -77,6 +79,7 @@ export default class Level1 extends MBLevel {
 
         // Set the key for the player's sprite
         this.playerSpriteKey = Level1.PLAYER_SPRITE_KEY;
+        this.player2SpriteKey = Level1.PLAYER2_SPRITE_KEY;
         // Set spawn positions
         this.playerSpawn = Level1.PLAYER_SPAWN;
         this.respawnPosition = new Vec2(592, 192);
@@ -102,6 +105,7 @@ export default class Level1 extends MBLevel {
         this.load.tilemap(this.tilemapKey, Level1.TILEMAP_PATH);
         // Load in the player's sprite
         this.load.spritesheet(this.playerSpriteKey, Level1.PLAYER_SPRITE_PATH);
+        this.load.spritesheet(this.player2SpriteKey, Level1.PLAYER2_SPRITE_PATH);
         this.load.image(PlayerWeapon.PROJECTILE_SPRITE_KEY, PlayerWeapon.PROJECTILE_SPRITE_PATH);
         this.load.image(SpellSpriteKey.FIRE_PROJECTILE, SpellSpritePath.FIRE_PROJECTILE);
         this.load.image(SpellSpriteKey.FIRE_PICKUP, SpellSpritePath.FIRE_PICKUP);
@@ -128,6 +132,7 @@ export default class Level1 extends MBLevel {
     public unloadScene(): void {
         this.emitter.fireEvent(GameEventType.STOP_SOUND, {key: this.levelMusicKey});
         this.load.keepSpritesheet(this.playerSpriteKey);
+        this.load.keepSpritesheet(this.player2SpriteKey);
         this.load.keepImage(PlayerWeapon.PROJECTILE_SPRITE_KEY);
         this.load.keepImage(SpellSpriteKey.FIRE_PROJECTILE);
         this.load.keepImage(SpellSpriteKey.FIRE_PICKUP);
