@@ -10,6 +10,7 @@ import Level1 from "./MBLevel1";
 import Level2 from "./MBLevel2";
 import { RuntimeModeValue, setRuntimeMode } from "../config/RuntimeMode";
 import P2PManager from "../Network/P2PManager";
+import LobbyScene from "./LobbyScene";
 
 export const MenuLayers = {
     MAIN: "MAIN"
@@ -145,7 +146,13 @@ export default class MainMenu extends Scene {
             return;
         }
 
-        // Online: P1 broadcasts the choice then transitions; P2 can't click (buttons hidden)
+        // Online: no active session yet — go to lobby first
+        if (P2PManager.mySlot === 0) {
+            this.sceneManager.changeToScene(LobbyScene);
+            return;
+        }
+
+        // P1 (host) broadcasts choice to P2 and transitions; P2 buttons are hidden
         if (P2PManager.mySlot === 1) {
             P2PManager.selectLevel(level);
             this.sceneManager.changeToScene(level === "level1" ? Level1 : Level2 as any);
