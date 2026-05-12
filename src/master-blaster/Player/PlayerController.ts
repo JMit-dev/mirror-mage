@@ -192,6 +192,7 @@ export default class PlayerController extends StateMachineAI {
         }
 
         if (fired) {
+            this._currentSpell = null; // Each spell is single-use — must pick up another
             this.emitter.fireEvent(GameEventType.PLAY_SOUND, {
                 key: PlayerWeapon.PROJECTILE_SHOOT_AUDIO_KEY,
                 loop: false,

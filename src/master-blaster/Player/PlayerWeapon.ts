@@ -5,7 +5,7 @@ import Scene from "../../Wolfie2D/Scene/Scene";
 import ResourceManager from "../../Wolfie2D/ResourceManager/ResourceManager";
 import { ProjectileFrame, SpellSpecs, SpellType } from "../Spells/SpellTypes";
 
-type ProjectileData = {
+export type ProjectileData = {
     sprite: Sprite;
     direction: Vec2;
     lifetimeRemaining: number;
@@ -14,6 +14,7 @@ type ProjectileData = {
     reflectedOwnerPlayerNum: 1 | 2 | null;
     animationElapsed: number;
     animationFrameIndex: number;
+    bounceCount: number;
 };
 
 /**
@@ -25,12 +26,13 @@ export default class PlayerWeapon {
     public static readonly PROJECTILE_SHOOT_AUDIO_KEY = "PROJECTILE_SHOOT";
     public static readonly PROJECTILE_SHOOT_AUDIO_PATH = "game_assets/sounds/shooting projectile.mp3";
 
-    protected static readonly PROJECTILE_LIFETIME = 5;
-    protected static readonly PROJECTILE_COOLDOWN = 2;
+    protected static readonly PROJECTILE_LIFETIME = 12;
+    protected static readonly PROJECTILE_COOLDOWN = 0.3;
     protected static readonly PROJECTILE_TARGET_SIZE = 24;
-    protected static readonly PROJECTILE_POOL_SIZE = 3;
+    protected static readonly PROJECTILE_POOL_SIZE = 8;
     protected static readonly PROJECTILE_SPAWN_PADDING = 8;
     protected static readonly PROJECTILE_FRAME_DURATION = 0.25;
+    public static readonly MAX_BOUNCES = 10;
 
     protected projectiles: Array<ProjectileData>;
     protected cooldownRemaining: number;
@@ -56,7 +58,8 @@ export default class PlayerWeapon {
                 spellType: SpellType.BASIC,
                 reflectedOwnerPlayerNum: null,
                 animationElapsed: 0,
-                animationFrameIndex: 0
+                animationFrameIndex: 0,
+                bounceCount: 0
             });
         }
     }
@@ -103,6 +106,7 @@ export default class PlayerWeapon {
         projectile.reflectedOwnerPlayerNum = null;
         projectile.animationElapsed = 0;
         projectile.animationFrameIndex = 0;
+        projectile.bounceCount = 0;
         projectile.lifetimeRemaining = PlayerWeapon.PROJECTILE_LIFETIME;
         projectile.active = true;
         const spellSpec = SpellSpecs[spellType];
@@ -128,13 +132,37 @@ export default class PlayerWeapon {
             return false;
         }
 
-        projectile.direction = projectile.direction.scaled(-1);
+        // Reverse direction with random chaos (±65 degrees) for unpredictable mirror bounces
+        const origAngle = Math.atan2(projectile.direction.y, projectile.direction.x);
+        const chaos = (Math.random() - 0.5) * Math.PI * 0.72;
+        const newAngle = origAngle + Math.PI + chaos;
+        projectile.direction = new Vec2(Math.cos(newAngle), Math.sin(newAngle));
+
         projectile.reflectedOwnerPlayerNum = reflectedOwnerPlayerNum;
         projectile.sprite.invertX = projectile.direction.x < 0;
         projectile.sprite.position.add(projectile.direction.scaled(projectile.sprite.boundary.halfSize.x + PlayerWeapon.PROJECTILE_SPAWN_PADDING));
         projectile.sprite._velocity.zero();
         projectile.sprite.collidedWithTilemap = false;
         return true;
+    }
+
+    /** Change the projectile's direction after a tile bounce. Deactivates if max bounces exceeded. */
+    public setBounceDirection(id: number, newDirection: Vec2): void {
+        const projectile = this.projectiles.find(p => p.sprite.id === id);
+        if (projectile === undefined || !projectile.active) return;
+
+        projectile.bounceCount++;
+        if (projectile.bounceCount > PlayerWeapon.MAX_BOUNCES) {
+            this.deactivateProjectile(projectile);
+            return;
+        }
+
+        projectile.direction = newDirection;
+        projectile.sprite.invertX = newDirection.x < 0;
+        projectile.sprite._velocity.zero();
+        projectile.sprite.collidedWithTilemap = false;
+        // Push away from surface so physics doesn't immediately re-trigger the collision
+        projectile.sprite.position.add(newDirection.scaled(projectile.sprite.boundary.halfSize.x + 5));
     }
 
     public deactivateById(id: number): void {
