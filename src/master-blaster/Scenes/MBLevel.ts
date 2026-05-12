@@ -289,24 +289,49 @@ export default abstract class MBLevel extends Scene {
     }
 
     protected updatePowerups(deltaT: number): void {
+        const isOnline = !this.devTestingMode && !this.localCoopTestingMode && P2PManager.mySlot !== 0;
+
         for (let i = this.activePowerups.length - 1; i >= 0; i--) {
             const powerup = this.activePowerups[i];
-            const pickedUpByPlayer1 = this.player !== undefined && powerup.sprite.boundary.overlapArea(this.player.boundary) > 0;
-            const pickedUpByPlayer2 = this.player2 !== undefined && powerup.sprite.boundary.overlapArea(this.player2.boundary) > 0;
 
-            if (!pickedUpByPlayer1 && !pickedUpByPlayer2) {
-                continue;
+            let pickedUpPlayer: 1 | 2 | null = null;
+            if (isOnline) {
+                // Online: only the local player can pick up on their machine
+                const localPlayer = P2PManager.mySlot === 1 ? this.player : this.player2;
+                if (localPlayer !== undefined && powerup.sprite.boundary.overlapArea(localPlayer.boundary) > 0) {
+                    pickedUpPlayer = P2PManager.mySlot as 1 | 2;
+                }
+            } else {
+                // Local: either player can pick up
+                if (this.player !== undefined && powerup.sprite.boundary.overlapArea(this.player.boundary) > 0) {
+                    pickedUpPlayer = 1;
+                } else if (this.player2 !== undefined && powerup.sprite.boundary.overlapArea(this.player2.boundary) > 0) {
+                    pickedUpPlayer = 2;
+                }
             }
 
-            if (pickedUpByPlayer1) {
-                (this.player.ai as PlayerController).equipSpell(powerup.spellType);
-            } else if (pickedUpByPlayer2) {
-                (this.player2.ai as PlayerController).equipSpell(powerup.spellType);
+            if (pickedUpPlayer === null) continue;
+
+            const playerSprite = pickedUpPlayer === 1 ? this.player : this.player2;
+            if (playerSprite !== undefined && playerSprite.ai) {
+                (playerSprite.ai as PlayerController).equipSpell(powerup.spellType);
             }
 
+            // Find spawn index so the peer can remove the same powerup
+            const spawnIdx = this.powerupSpawnPoints.findIndex(p =>
+                p.distanceSqTo(powerup.spawnPosition) < 1
+            );
             powerup.sprite.destroy();
             this.activePowerups.splice(i, 1);
+
+            // Tell the peer to remove this powerup
+            if (isOnline && spawnIdx >= 0) {
+                this._sendPowerupRemove(spawnIdx);
+            }
         }
+
+        // P2 waits for P1's spawn packets — don't run the respawn timer on P2
+        if (isOnline && P2PManager.mySlot !== 1) return;
 
         if (this.activePowerups.length >= MBLevel.POWERUP_MAX_ACTIVE) {
             this.powerupRespawnTimer = MBLevel.POWERUP_RESPAWN_INTERVAL;
@@ -348,40 +373,77 @@ export default abstract class MBLevel extends Scene {
     }
 
     protected spawnRandomPowerup(): boolean {
+        const isOnline = !this.devTestingMode && !this.localCoopTestingMode && P2PManager.mySlot !== 0;
+        // P2 never spawns independently — waits for P1's POWERUP_SPAWN packets
+        if (isOnline && P2PManager.mySlot !== 1) return false;
+
         const availableSpawnPoints = this.powerupSpawnPoints.filter(point =>
             this.activePowerups.every(powerup => powerup.spawnPosition.distanceSqTo(point) > 1)
         );
-
-        if (availableSpawnPoints.length === 0) {
-            return false;
-        }
+        if (availableSpawnPoints.length === 0) return false;
 
         const availableSpellTypes = MBLevel.POWERUP_TYPES.filter(spellType =>
             this.activePowerups.every(powerup => powerup.spellType !== spellType)
         );
-
-        if (availableSpellTypes.length === 0) {
-            return false;
-        }
+        if (availableSpellTypes.length === 0) return false;
 
         const spellType = availableSpellTypes[Math.floor(Math.random() * availableSpellTypes.length)];
         const spriteKey = SpellSpecs[spellType].pickupSpriteKey;
-        if (spriteKey === undefined) {
-            return false;
-        }
+        if (spriteKey === undefined) return false;
 
         const spawnPosition = availableSpawnPoints[Math.floor(Math.random() * availableSpawnPoints.length)];
+
+        // Broadcast to P2 before spawning locally so both screens stay in sync
+        if (isOnline) {
+            const spawnIdx = this.powerupSpawnPoints.findIndex(p => p.distanceSqTo(spawnPosition) < 1);
+            if (spawnIdx >= 0) this._sendPowerupSpawn(spawnIdx, spellType);
+        }
+
+        return this._spawnPowerupAt(spawnPosition, spellType);
+    }
+
+    private _spawnPowerupAt(spawnPosition: Vec2, spellType: SpellType): boolean {
+        const spriteKey = SpellSpecs[spellType].pickupSpriteKey;
+        if (spriteKey === undefined) return false;
         const sprite = this.add.sprite(spriteKey, MBLayers.PRIMARY);
         sprite.scale.set(MBLevel.POWERUP_SCALE, MBLevel.POWERUP_SCALE);
         sprite.position.copy(spawnPosition);
-
-        this.activePowerups.push({
-            sprite,
-            spellType,
-            spawnPosition: spawnPosition.clone()
-        });
-
+        this.activePowerups.push({ sprite, spellType, spawnPosition: spawnPosition.clone() });
         return true;
+    }
+
+    private _sendPowerupSpawn(spawnIdx: number, spellType: SpellType): void {
+        if (!P2PManager.isConnected) return;
+        const buf = new ArrayBuffer(4);
+        const v = new DataView(buf);
+        v.setUint8(0, 0xf8);
+        v.setUint16(1, spawnIdx, true);
+        v.setUint8(3, spellType as unknown as number);
+        P2PManager.send(buf);
+    }
+
+    private _sendPowerupRemove(spawnIdx: number): void {
+        if (!P2PManager.isConnected) return;
+        const buf = new ArrayBuffer(3);
+        const v = new DataView(buf);
+        v.setUint8(0, 0xf7);
+        v.setUint16(1, spawnIdx, true);
+        P2PManager.send(buf);
+    }
+
+    private _handlePowerupSpawn(spawnIdx: number, spellType: SpellType): void {
+        if (spawnIdx >= this.powerupSpawnPoints.length) return;
+        this._spawnPowerupAt(this.powerupSpawnPoints[spawnIdx], spellType);
+    }
+
+    private _handlePowerupRemove(spawnIdx: number): void {
+        if (spawnIdx >= this.powerupSpawnPoints.length) return;
+        const pos = this.powerupSpawnPoints[spawnIdx];
+        const idx = this.activePowerups.findIndex(p => p.spawnPosition.distanceSqTo(pos) < 1);
+        if (idx >= 0) {
+            this.activePowerups[idx].sprite.destroy();
+            this.activePowerups.splice(idx, 1);
+        }
     }
 
     /**
@@ -994,15 +1056,16 @@ export default abstract class MBLevel extends Scene {
 
         if (type === PacketType.STATE) {
             const pkt = decodeState(data);
-            // Store under the remote player's slot
             const remoteSlot = P2PManager.mySlot === 1 ? 2 : 1;
-            if (remoteSlot === 1) {
-                this.remoteStateP1 = pkt;
-            } else {
-                this.remoteStateP2 = pkt;
-            }
+            if (remoteSlot === 1) this.remoteStateP1 = pkt;
+            else                  this.remoteStateP2 = pkt;
         } else if (type === PacketType.EVENT) {
             this._handleNetEvent(decodeEvent(data));
+        } else if (type === 0xf8 && data.byteLength >= 4) {
+            const v = new DataView(data);
+            this._handlePowerupSpawn(v.getUint16(1, true), v.getUint8(3) as unknown as SpellType);
+        } else if (type === 0xf7 && data.byteLength >= 3) {
+            this._handlePowerupRemove(new DataView(data).getUint16(1, true));
         }
     }
 
