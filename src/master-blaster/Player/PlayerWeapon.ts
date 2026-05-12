@@ -83,7 +83,7 @@ export default class PlayerWeapon {
         }
     }
 
-    public tryFire(playerPosition: Vec2, playerHalfWidth: number, facingLeft: boolean, spellType: SpellType | null): boolean {
+    public tryFire(playerPosition: Vec2, playerHalfWidth: number, aimDirection: Vec2, spellType: SpellType | null): boolean {
         if (spellType === null) {
             return false;
         }
@@ -97,11 +97,10 @@ export default class PlayerWeapon {
             return false;
         }
 
-        const direction = new Vec2(facingLeft ? -1 : 1, 0);
-        const xOffset = playerHalfWidth + projectile.sprite.boundary.halfSize.x + PlayerWeapon.PROJECTILE_SPAWN_PADDING;
-        const spawnPosition = playerPosition.clone().add(new Vec2(direction.x * xOffset, 0));
+        const spawnOffset = playerHalfWidth + projectile.sprite.boundary.halfSize.x + PlayerWeapon.PROJECTILE_SPAWN_PADDING;
+        const spawnPosition = playerPosition.clone().add(aimDirection.scaled(spawnOffset));
 
-        projectile.direction = direction;
+        projectile.direction = aimDirection.clone();
         projectile.spellType = spellType;
         projectile.reflectedOwnerPlayerNum = null;
         projectile.animationElapsed = 0;
@@ -112,7 +111,7 @@ export default class PlayerWeapon {
         const spellSpec = SpellSpecs[spellType];
         this.applyProjectileAppearance(projectile.sprite, spellSpec.projectileSpriteKey, spellSpec.projectileFrames?.[0]);
         projectile.sprite.position.copy(spawnPosition);
-        projectile.sprite.invertX = facingLeft;
+        projectile.sprite.invertX = aimDirection.x < 0;
         projectile.sprite.visible = true;
         projectile.sprite.enablePhysics();
         projectile.sprite._velocity.zero();
