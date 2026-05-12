@@ -18,6 +18,30 @@
  *   [7-10] respawnY float32 LE  (PLAYER_RESPAWN only)
  */
 
+import { SpellType } from "../Spells/SpellTypes";
+
+// -------------------------------------------------------------------------
+// SpellType ↔ byte encoding (strings can't be written into binary buffers)
+// -------------------------------------------------------------------------
+const SPELL_ENCODE: Partial<Record<SpellType, number>> = {
+    [SpellType.FIRE]:      1,
+    [SpellType.ICE]:       2,
+    [SpellType.LIGHTNING]: 3,
+    [SpellType.BASIC]:     4,
+};
+const SPELL_DECODE: Record<number, SpellType> = {
+    1: SpellType.FIRE,
+    2: SpellType.ICE,
+    3: SpellType.LIGHTNING,
+    4: SpellType.BASIC,
+};
+export function encodeSpellType(s: SpellType | null): number {
+    return (s !== null ? SPELL_ENCODE[s] : undefined) ?? 0;
+}
+export function decodeSpellType(b: number): SpellType | null {
+    return SPELL_DECODE[b] ?? null;
+}
+
 export const PacketType = {
     STATE: 0x01,
     EVENT: 0x02,

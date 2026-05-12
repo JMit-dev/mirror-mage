@@ -85,6 +85,8 @@ export default class PlayerController extends StateMachineAI {
     public remoteMirrorAngle: number = 0;
     // Current aim direction — Jump state overrides this with wobble; defaults to horizontal
     public aimDirection: Vec2 = new Vec2(1, 0);
+    // The spell type used in the most recent fire — valid for one frame so the STATE packet can read it
+    public lastFiredSpell: SpellType | null = null;
 
     public initializeAI(owner: MBAnimatedSprite, options: Record<string, any>){
         this.owner = owner;
@@ -176,6 +178,7 @@ export default class PlayerController extends StateMachineAI {
     public update(deltaT: number): void {
         // Default aim: horizontal from facing direction. Jump state overrides this with wobble.
         this.aimDirection = new Vec2(this.owner.invertX ? -1 : 1, 0);
+        this.lastFiredSpell = null; // Reset each frame; set below when firing
 
         super.update(deltaT);
 
@@ -197,6 +200,7 @@ export default class PlayerController extends StateMachineAI {
         }
 
         if (fired) {
+            this.lastFiredSpell = this._currentSpell; // Capture before clearing for the STATE packet
             this._currentSpell = null; // Each spell is single-use — must pick up another
             this.emitter.fireEvent(GameEventType.PLAY_SOUND, {
                 key: PlayerWeapon.PROJECTILE_SHOOT_AUDIO_KEY,

@@ -30,7 +30,7 @@ import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import { isDevTestingMode, isLocalCoopTestingMode } from "../config/RuntimeMode";
 import { consumeMirrorDurability, getHitMirrorOwner } from "../Spells/MirrorSpellUtils";
 import P2PManager from "../Network/P2PManager";
-import { PacketType, EventId, StatePacket, decodeState, encodeState, encodeEvent, decodeEvent } from "../Network/NetPacket";
+import { PacketType, EventId, StatePacket, decodeState, encodeState, encodeEvent, decodeEvent, encodeSpellType, decodeSpellType } from "../Network/NetPacket";
 import { SpellSpecs, SpellType } from "../Spells/SpellTypes";
 
 type SpellPowerup = {
@@ -422,7 +422,7 @@ export default abstract class MBLevel extends Scene {
         const v = new DataView(buf);
         v.setUint8(0, 0xf8);
         v.setUint16(1, spawnIdx, true);
-        v.setUint8(3, spellType as unknown as number);
+        v.setUint8(3, encodeSpellType(spellType));
         P2PManager.send(buf);
     }
 
@@ -884,9 +884,8 @@ export default abstract class MBLevel extends Scene {
                 this.mirrorDirection = mouseDirection;
             }
         } else if (P2PManager.isConnected) {
-            // Use the remote peer's actual mouse angle (received via P2P)
             const angle = playerController.remoteMirrorAngle;
-            this.mirrorDirection = new Vec2(Math.cos(angle), -Math.sin(angle));
+            this.mirrorDirection = new Vec2(Math.cos(angle), Math.sin(angle));
         } else {
             this.mirrorDirection = new Vec2(this.player.invertX ? -1 : 1, 0);
         }
@@ -917,7 +916,7 @@ export default abstract class MBLevel extends Scene {
             }
         } else if (P2PManager.isConnected) {
             const angle = player2Controller.remoteMirrorAngle;
-            this.mirror2Direction = new Vec2(Math.cos(angle), -Math.sin(angle));
+            this.mirror2Direction = new Vec2(Math.cos(angle), Math.sin(angle));
         } else {
             this.mirror2Direction = new Vec2(this.player2.invertX ? -1 : 1, 0);
         }
@@ -1088,7 +1087,8 @@ export default abstract class MBLevel extends Scene {
             this._handleNetEvent(decodeEvent(data));
         } else if (type === 0xf8 && data.byteLength >= 4) {
             const v = new DataView(data);
-            this._handlePowerupSpawn(v.getUint16(1, true), v.getUint8(3) as unknown as SpellType);
+            const spellType = decodeSpellType(v.getUint8(3));
+            if (spellType !== null) this._handlePowerupSpawn(v.getUint16(1, true), spellType);
         } else if (type === 0xf7 && data.byteLength >= 3) {
             this._handlePowerupRemove(new DataView(data).getUint16(1, true));
         }
@@ -1117,21 +1117,22 @@ export default abstract class MBLevel extends Scene {
         const localPlayer = mySlot === 1 ? this.player : this.player2;
         if (localPlayer === undefined) return;
 
-        const mousePosition = Input.getGlobalMousePosition();
-        const mouseDir = localPlayer.position.dirTo(mousePosition);
-        const mirrorAngle = mouseDir.isZero() ? 0 : Math.atan2(-mouseDir.y, mouseDir.x);
-
         const pc = localPlayer.ai as PlayerController;
+        // Send aim direction as the mirror angle so P2 can replicate projectile direction
+        const mirrorAngle = Math.atan2(pc.aimDirection.y, pc.aimDirection.x);
+        const attackJustPressed = Input.isMouseJustPressed(0) || Input.isJustPressed(mySlot === 1 ? MBControls.ATTACK : MBControls.P2_ATTACK);
+
         const pkt: StatePacket = {
             left:              Input.isPressed(mySlot === 1 ? MBControls.MOVE_LEFT  : MBControls.P2_MOVE_LEFT),
             right:             Input.isPressed(mySlot === 1 ? MBControls.MOVE_RIGHT : MBControls.P2_MOVE_RIGHT),
             jumpJustPressed:   Input.isJustPressed(mySlot === 1 ? MBControls.JUMP   : MBControls.P2_JUMP),
-            attackJustPressed: Input.isMouseJustPressed(0) || Input.isJustPressed(mySlot === 1 ? MBControls.ATTACK : MBControls.P2_ATTACK),
+            attackJustPressed,
             invertX:           localPlayer.invertX,
             mirrorAngle,
             posX:              localPlayer.position.x,
             posY:              localPlayer.position.y,
-            spellType:         pc.currentSpell as unknown as number,
+            // lastFiredSpell is set the frame the attack fires (before currentSpell is cleared)
+            spellType:         encodeSpellType(attackJustPressed ? pc.lastFiredSpell : pc.currentSpell),
         };
         P2PManager.send(encodeState(pkt));
     }
@@ -1152,6 +1153,16 @@ export default abstract class MBLevel extends Scene {
 
         remotePlayer.position.set(pkt.posX, pkt.posY);
         remotePlayer.invertX = pkt.invertX;
+
+        // Replicate remote player's attack — AI is disabled so we fire the weapon directly
+        if (pkt.attackJustPressed) {
+            const remoteWeapon = remoteSlot === 1 ? this.playerWeaponSystem : this.player2WeaponSystem;
+            const spellType = decodeSpellType(pkt.spellType);
+            const aimDir = new Vec2(Math.cos(pkt.mirrorAngle), Math.sin(pkt.mirrorAngle));
+            if (spellType !== null) {
+                remoteWeapon.tryFire(remotePlayer.position, remotePlayer.boundary.halfSize.x, aimDir, spellType);
+            }
+        }
 
         if (!pc.isDead) {
             if (dy < -2) {
