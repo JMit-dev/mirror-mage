@@ -15,6 +15,7 @@ export type ProjectileData = {
     animationElapsed: number;
     animationFrameIndex: number;
     bounceCount: number;
+    firedThisFrame: boolean; // true only the frame tryFire activated this projectile
 };
 
 /**
@@ -59,7 +60,8 @@ export default class PlayerWeapon {
                 reflectedOwnerPlayerNum: null,
                 animationElapsed: 0,
                 animationFrameIndex: 0,
-                bounceCount: 0
+                bounceCount: 0,
+                firedThisFrame: false
             });
         }
     }
@@ -68,6 +70,7 @@ export default class PlayerWeapon {
         this.cooldownRemaining = Math.max(0, this.cooldownRemaining - deltaT);
 
         for (const projectile of this.projectiles) {
+            projectile.firedThisFrame = false; // Clear after one frame
             if (!projectile.active) {
                 continue;
             }
@@ -106,6 +109,7 @@ export default class PlayerWeapon {
         projectile.animationElapsed = 0;
         projectile.animationFrameIndex = 0;
         projectile.bounceCount = 0;
+        projectile.firedThisFrame = true;
         projectile.lifetimeRemaining = PlayerWeapon.PROJECTILE_LIFETIME;
         projectile.active = true;
         const spellSpec = SpellSpecs[spellType];
@@ -118,6 +122,32 @@ export default class PlayerWeapon {
         projectile.sprite.collidedWithTilemap = false;
 
         this.cooldownRemaining = PlayerWeapon.PROJECTILE_COOLDOWN;
+        return true;
+    }
+
+    /** Directly spawn a replicated projectile at an exact world position (no cooldown check). */
+    public fireAtPosition(spawnPosition: Vec2, direction: Vec2, spellType: SpellType): boolean {
+        const spellSpec = SpellSpecs[spellType];
+        if (spellSpec === undefined) return false;
+        const projectile = this.projectiles.find(p => !p.active);
+        if (projectile === undefined) return false;
+
+        projectile.direction = direction.clone();
+        projectile.spellType = spellType;
+        projectile.reflectedOwnerPlayerNum = null;
+        projectile.animationElapsed = 0;
+        projectile.animationFrameIndex = 0;
+        projectile.bounceCount = 0;
+        projectile.firedThisFrame = false; // Already a replication — don't re-send
+        projectile.lifetimeRemaining = PlayerWeapon.PROJECTILE_LIFETIME;
+        projectile.active = true;
+        this.applyProjectileAppearance(projectile.sprite, spellSpec.projectileSpriteKey, spellSpec.projectileFrames?.[0]);
+        projectile.sprite.position.copy(spawnPosition);
+        projectile.sprite.invertX = direction.x < 0;
+        projectile.sprite.visible = true;
+        projectile.sprite.enablePhysics();
+        projectile.sprite._velocity.zero();
+        projectile.sprite.collidedWithTilemap = false;
         return true;
     }
 

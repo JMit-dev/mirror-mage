@@ -149,6 +149,7 @@ export default abstract class MBLevel extends Scene {
     protected powerupSpawnPoints: Array<Vec2> = [];
     protected activePowerups: Array<SpellPowerup> = [];
     protected powerupRespawnTimer: number = MBLevel.POWERUP_RESPAWN_INTERVAL;
+    protected powerupResyncTimer: number = 3; // P1 rebroadcasts all active powerup positions every 3s
 
     /** Sound and music */
     protected levelMusicKey!: string;
@@ -337,6 +338,16 @@ export default abstract class MBLevel extends Scene {
         // P2 waits for P1's spawn packets — don't run the respawn timer on P2
         if (isOnline && P2PManager.mySlot !== 1) return;
 
+        // Periodic resync: re-broadcast all active powerups so P2 never misses them
+        this.powerupResyncTimer -= deltaT;
+        if (this.powerupResyncTimer <= 0 && isOnline && P2PManager.isConnected) {
+            this.powerupResyncTimer = 5;
+            for (const pu of this.activePowerups) {
+                const idx = this.powerupSpawnPoints.findIndex(p => p.distanceSqTo(pu.spawnPosition) < 1);
+                if (idx >= 0) this._sendPowerupSpawn(idx, pu.spellType);
+            }
+        }
+
         if (this.activePowerups.length >= MBLevel.POWERUP_MAX_ACTIVE) {
             this.powerupRespawnTimer = MBLevel.POWERUP_RESPAWN_INTERVAL;
             return;
@@ -414,6 +425,21 @@ export default abstract class MBLevel extends Scene {
         sprite.position.copy(spawnPosition);
         this.activePowerups.push({ sprite, spellType, spawnPosition: spawnPosition.clone() });
         return true;
+    }
+
+    /** Send a 0xf6 packet so the peer spawns the projectile directly. */
+    private _sendSpellFiredPacket(playerNum: 1 | 2, spellType: SpellType, pos: Vec2, dir: Vec2): void {
+        if (!P2PManager.isConnected) return;
+        const buf = new ArrayBuffer(19);
+        const v = new DataView(buf);
+        v.setUint8(0, 0xf6);
+        v.setUint8(1, playerNum);
+        v.setUint8(2, encodeSpellType(spellType));
+        v.setFloat32(3,  pos.x, true);
+        v.setFloat32(7,  pos.y, true);
+        v.setFloat32(11, dir.x, true);
+        v.setFloat32(15, dir.y, true);
+        P2PManager.send(buf);
     }
 
     private _sendPowerupSpawn(spawnIdx: number, spellType: SpellType): void {
@@ -499,9 +525,17 @@ export default abstract class MBLevel extends Scene {
      * @param projectileId the id of the projectile
      */
     protected updateWeaponProjectiles(weaponSystem: PlayerWeapon, ownerPlayerNum: 1 | 2): void {
+        const isOnline = !this.devTestingMode && !this.localCoopTestingMode && P2PManager.mySlot !== 0;
+
         for (const projectile of weaponSystem.getProjectiles()) {
             if (!projectile.active) {
                 continue;
+            }
+
+            // Send dedicated SPELL_FIRED packet the frame a local projectile is spawned
+            if (isOnline && ownerPlayerNum === P2PManager.mySlot && projectile.firedThisFrame) {
+                this._sendSpellFiredPacket(ownerPlayerNum, projectile.spellType,
+                    projectile.sprite.position, projectile.direction);
             }
 
             // Deactivate once off-screen
@@ -604,27 +638,38 @@ export default abstract class MBLevel extends Scene {
      * or go to MainMenu if they've run out.
      */
     protected handlePlayerDeath(playerNum: 1 | 2 = 1): void {
+        const isOnline = !this.devTestingMode && !this.localCoopTestingMode && P2PManager.mySlot !== 0;
+        // In online mode, only the owning client decrements stocks and broadcasts the respawn
+        const isAuthority = !isOnline || P2PManager.mySlot === playerNum;
+
         if (playerNum === 2 && this.player2 !== undefined) {
-            this.stocksRemaining2 -= 1;
-            this.updateStockDisplay();
-            if (this.stocksRemaining2 <= 0) {
-                this.sceneManager.changeToScene(MainMenu);
-                return;
-            }
             const pc = this.player2.ai as PlayerController;
             const respawnTarget = this.getRespawnPosition(2);
+            if (isAuthority) {
+                this.stocksRemaining2 -= 1;
+                this.updateStockDisplay();
+                if (this.stocksRemaining2 <= 0) {
+                    this.sceneManager.changeToScene(MainMenu);
+                    return;
+                }
+                // Tell peer: P2 died and respawned here (peer decrements their stock display)
+                this.sendNetEvent(EventId.PLAYER_RESPAWN, 2, respawnTarget.x, respawnTarget.y);
+            }
             pc.respawn(respawnTarget);
             this.restoreMirror(2);
             this.updateMirror2Position();
         } else {
-            this.stocksRemaining -= 1;
-            this.updateStockDisplay();
-            if (this.stocksRemaining <= 0) {
-                this.sceneManager.changeToScene(MainMenu);
-                return;
-            }
             const pc = this.player.ai as PlayerController;
             const respawnTarget = this.getRespawnPosition(1);
+            if (isAuthority) {
+                this.stocksRemaining -= 1;
+                this.updateStockDisplay();
+                if (this.stocksRemaining <= 0) {
+                    this.sceneManager.changeToScene(MainMenu);
+                    return;
+                }
+                this.sendNetEvent(EventId.PLAYER_RESPAWN, 1, respawnTarget.x, respawnTarget.y);
+            }
             pc.respawn(respawnTarget);
             this.restoreMirror(1);
             this.updateMirrorPosition();
@@ -1091,6 +1136,16 @@ export default abstract class MBLevel extends Scene {
             if (spellType !== null) this._handlePowerupSpawn(v.getUint16(1, true), spellType);
         } else if (type === 0xf7 && data.byteLength >= 3) {
             this._handlePowerupRemove(new DataView(data).getUint16(1, true));
+        } else if (type === 0xf6 && data.byteLength >= 19) {
+            const v = new DataView(data);
+            const playerNum = v.getUint8(1) as 1 | 2;
+            const spellType = decodeSpellType(v.getUint8(2));
+            if (spellType !== null) {
+                const pos = new Vec2(v.getFloat32(3, true), v.getFloat32(7, true));
+                const dir = new Vec2(v.getFloat32(11, true), v.getFloat32(15, true));
+                const remoteWeapon = playerNum === 1 ? this.playerWeaponSystem : this.player2WeaponSystem;
+                remoteWeapon.fireAtPosition(pos, dir, spellType);
+            }
         }
     }
 
@@ -1101,6 +1156,16 @@ export default abstract class MBLevel extends Scene {
         } else if (evt.eventId === EventId.MIRROR_HIT) {
             this._applyMirrorHit(evt.playerNum);
         } else if (evt.eventId === EventId.PLAYER_RESPAWN) {
+            // Owning client already handled their own stock — we just sync our display
+            if (evt.playerNum === 2) {
+                this.stocksRemaining2 = Math.max(0, this.stocksRemaining2 - 1);
+                this.updateStockDisplay();
+                if (this.stocksRemaining2 <= 0) { this.sceneManager.changeToScene(MainMenu); return; }
+            } else {
+                this.stocksRemaining = Math.max(0, this.stocksRemaining - 1);
+                this.updateStockDisplay();
+                if (this.stocksRemaining <= 0) { this.sceneManager.changeToScene(MainMenu); return; }
+            }
             const target = evt.playerNum === 2 ? this.player2 : this.player;
             if (target !== undefined) {
                 const pc = target.ai as PlayerController;
@@ -1153,16 +1218,6 @@ export default abstract class MBLevel extends Scene {
 
         remotePlayer.position.set(pkt.posX, pkt.posY);
         remotePlayer.invertX = pkt.invertX;
-
-        // Replicate remote player's attack — AI is disabled so we fire the weapon directly
-        if (pkt.attackJustPressed) {
-            const remoteWeapon = remoteSlot === 1 ? this.playerWeaponSystem : this.player2WeaponSystem;
-            const spellType = decodeSpellType(pkt.spellType);
-            const aimDir = new Vec2(Math.cos(pkt.mirrorAngle), Math.sin(pkt.mirrorAngle));
-            if (spellType !== null) {
-                remoteWeapon.tryFire(remotePlayer.position, remotePlayer.boundary.halfSize.x, aimDir, spellType);
-            }
-        }
 
         if (!pc.isDead) {
             if (dy < -2) {
