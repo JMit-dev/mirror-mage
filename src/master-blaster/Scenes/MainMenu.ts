@@ -60,6 +60,12 @@ export default class MainMenu extends Scene {
         this.createModeControls(size);
         this.createLevelControls(size);
 
+        // P2 landing on this page with a room code and no session → go straight to lobby
+        if (P2PManager.mySlot === 0 && /room=[A-Z0-9]{6}/.test(window.location.hash)) {
+            this.sceneManager.changeToScene(LobbyScene);
+            return;
+        }
+
         // If already in an online session (came from LobbyScene → SPACE)
         if (P2PManager.mySlot !== 0) {
             if (P2PManager.mySlot === 2) {
