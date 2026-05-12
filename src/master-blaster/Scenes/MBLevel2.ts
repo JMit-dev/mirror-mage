@@ -9,11 +9,15 @@ import RenderingManager from "../../Wolfie2D/Rendering/RenderingManager";
 import SceneManager from "../../Wolfie2D/Scene/SceneManager";
 import PlayerWeapon from "../Player/PlayerWeapon";
 import { SpellSpriteKey, SpellSpritePath } from "../Spells/SpellTypes";
+import { GraphicType } from "../../Wolfie2D/Nodes/Graphics/GraphicTypes";
+import Color from "../../Wolfie2D/Utils/Color";
 
 /**
  * The second level for the Master Blaster. It should be the goose dungeon / cave.
  */
 export default class Level2 extends MBLevel {
+    protected static readonly ARENA_BACKGROUND_LAYER_KEY = "Level2ArenaBackground";
+    protected static readonly TILE_BACKGROUND_LAYER_KEY = "Background";
     protected static readonly SCALE_FACTOR = 1.5;
     protected static readonly LEVEL_CENTER = new Vec2(600, 300);
 
@@ -118,7 +122,10 @@ export default class Level2 extends MBLevel {
     }
 
     public startScene(): void {
+        this.addLayer(Level2.ARENA_BACKGROUND_LAYER_KEY, -10);
         super.startScene();
+        this.initializeArenaBackground();
+        this.hideTiledBackground();
         this.initializePowerups();
         this.nextLevel = MainMenu;
     }
@@ -142,6 +149,23 @@ export default class Level2 extends MBLevel {
             Level2.LEVEL_CENTER.y + viewportHalfSize.y
         );
         this.viewport.setFocus(Level2.LEVEL_CENTER);
+    }
+
+    protected initializeArenaBackground(): void {
+        const viewportHalfSize = this.viewport.getHalfSize();
+        const arenaBackground = this.add.graphic(GraphicType.RECT, Level2.ARENA_BACKGROUND_LAYER_KEY, {
+            position: Level2.LEVEL_CENTER.clone(),
+            size: viewportHalfSize.scaled(2)
+        });
+
+        arenaBackground.color = new Color(48, 48, 48);
+    }
+
+    protected hideTiledBackground(): void {
+        const tiledBackground = this.getTilemap(Level2.TILE_BACKGROUND_LAYER_KEY);
+        if (tiledBackground !== null) {
+            tiledBackground.visible = false;
+        }
     }
 
     protected initializeLevelEnds(): void {
