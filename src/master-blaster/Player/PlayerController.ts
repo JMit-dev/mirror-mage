@@ -9,6 +9,7 @@ import Walk from "./PlayerStates/Walk";
 
 import PlayerWeapon from "./PlayerWeapon";
 import Input from "../../Wolfie2D/Input/Input";
+import { GameEventType } from "../../Wolfie2D/Events/GameEventType";
 
 import { MBControls } from "../MBControls";
 import MBAnimatedSprite from "../Nodes/MBAnimatedSprite";
@@ -191,6 +192,12 @@ export default class PlayerController extends StateMachineAI {
         }
 
         if (fired) {
+            this.emitter.fireEvent(GameEventType.PLAY_SOUND, {
+                key: PlayerWeapon.PROJECTILE_SHOOT_AUDIO_KEY,
+                loop: false,
+                holdReference: false,
+                volume: 0.5
+            });
             this.owner.animation.play(PlayerAnimations.ATTACK, false);
         }
     }

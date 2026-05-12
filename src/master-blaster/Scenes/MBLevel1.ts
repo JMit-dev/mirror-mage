@@ -47,7 +47,7 @@ export default class Level1 extends MBLevel {
     public static readonly TILE_DESTROYED_KEY = "TILE_DESTROYED";
     public static readonly TILE_DESTROYED_PATH = "game_assets/sounds/switch.wav";
     public static readonly DEATH_AUDIO_KEY = "PLAYER_DEATH";
-    public static readonly DEATH_AUDIO_PATH = "game_assets/sounds/death.wav";
+    public static readonly DEATH_AUDIO_PATH = "game_assets/sounds/wizard die.mp3";
 
     public static readonly LEVEL_END = new AABB(new Vec2(560, 280), new Vec2(24, 16));
     protected static readonly ENEMY_POSITION = new Vec2(792, 320);
@@ -118,6 +118,7 @@ export default class Level1 extends MBLevel {
         this.load.audio(this.jumpAudioKey, Level1.JUMP_AUDIO_PATH);
         this.load.audio(this.tileDestroyedAudioKey, Level1.TILE_DESTROYED_PATH);
         this.load.audio(this.deathAudioKey, Level1.DEATH_AUDIO_PATH);
+        this.load.audio(PlayerWeapon.PROJECTILE_SHOOT_AUDIO_KEY, PlayerWeapon.PROJECTILE_SHOOT_AUDIO_PATH);
     }
 
     /**
@@ -140,6 +141,7 @@ export default class Level1 extends MBLevel {
         this.load.keepAudio(this.jumpAudioKey);
         this.load.keepAudio(this.tileDestroyedAudioKey);
         this.load.keepAudio(this.deathAudioKey);
+        this.load.keepAudio(PlayerWeapon.PROJECTILE_SHOOT_AUDIO_KEY);
     }
 
     public startScene(): void {

@@ -104,8 +104,12 @@ export default class AudioManager {
         // Add any additional nodes
         const nodes: Array<AudioNode> = [source];
 
-        // Do any additional nodes here?
-        // Of course, there aren't any supported yet...
+        const volume = options.has("volume") ? options.get("volume") : 1;
+        if (volume !== 1) {
+            const volumeNode = this.audioCtx.createGain();
+            volumeNode.gain.setValueAtTime(Math.max(0, volume), this.audioCtx.currentTime);
+            nodes.push(volumeNode);
+        }
 
         // Add the gain node for this channel
         nodes.push(this.gainNodes[channel]);
