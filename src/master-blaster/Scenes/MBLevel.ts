@@ -27,7 +27,6 @@ import MBFactoryManager from "../Factory/MBFactoryManager";
 import MainMenu from "./MainMenu";
 import AudioManager, { AudioChannelType } from "../../Wolfie2D/Sound/AudioManager";
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
-import FirebaseManager, { RuntimePlayerState } from "../Firebase/FirebaseManager";
 import { isDevTestingMode, isLocalCoopTestingMode } from "../config/RuntimeMode";
 import { consumeMirrorDurability, getHitMirrorOwner } from "../Spells/MirrorSpellUtils";
 import P2PManager from "../Network/P2PManager";
@@ -219,17 +218,9 @@ export default abstract class MBLevel extends Scene {
         // Start the black screen fade out
         this.levelTransitionScreen.tweens.play("fadeOut");
 
-        // Wire up P2P message handler and connect if not already pre-connected from lobby
-        if (!this.devTestingMode && !this.localCoopTestingMode && FirebaseManager.state.mySlot !== 0) {
+        // Wire up P2P message handler (connection established in LobbyScene)
+        if (!this.devTestingMode && !this.localCoopTestingMode && P2PManager.mySlot !== 0) {
             P2PManager.onMessage((data: ArrayBuffer) => this._handleNetPacket(data));
-            if (!P2PManager.isConnected) {
-                // Lobby didn't pre-connect (e.g. testing path) — connect now as fallback
-                const isHost = FirebaseManager.state.mySlot === 1;
-                P2PManager.connect(FirebaseManager.state.roomCode, isHost)
-                    .catch((e) => console.warn("[P2P] connect failed:", e));
-            }
-            // Remote player AI stays disabled — position is driven by received packets,
-            // not local physics, avoiding the teleport-vs-physics jitter conflict.
         }
 
         AudioManager.setVolume(AudioChannelType.MUSIC, this.levelMusicVolume);
@@ -718,7 +709,7 @@ export default abstract class MBLevel extends Scene {
         this.player.addAI(PlayerController, {
             weaponSystem: this.playerWeaponSystem,
             tilemap: "Destructable",
-            isLocalPlayer: FirebaseManager.state.mySlot === 0 || FirebaseManager.state.mySlot === 1
+            isLocalPlayer: P2PManager.mySlot === 0 || P2PManager.mySlot === 1
         });
         if (!(this.player.ai as PlayerController).isLocalPlayer) {
             this.player.setAIActive(false, {});
@@ -826,7 +817,7 @@ export default abstract class MBLevel extends Scene {
         this.mirror2.visible = true;
         const player2Controller = this.player2.ai as PlayerController;
         // Use mySlot to determine authority — more reliable than isLocalPlayer at scene init time
-        const p2IsLocal = FirebaseManager.state.mySlot === 2 || FirebaseManager.state.mySlot === 0;
+        const p2IsLocal = P2PManager.mySlot === 2 || P2PManager.mySlot === 0;
 
         if (this.localCoopTestingMode) {
             this.mirror2Direction = new Vec2(this.player2.invertX ? -1 : 1, 0);
@@ -973,7 +964,7 @@ export default abstract class MBLevel extends Scene {
             weaponSystem: this.player2WeaponSystem,
             tilemap: "Destructable",
             playerNumber: 2,
-            isLocalPlayer: FirebaseManager.state.mySlot === 2,
+            isLocalPlayer: P2PManager.mySlot === 2,
         });
         if (!(this.player2.ai as PlayerController).isLocalPlayer && !this.localCoopTestingMode) {
             this.player2.setAIActive(false, {});
@@ -981,7 +972,7 @@ export default abstract class MBLevel extends Scene {
     }
 
     protected syncMultiplayerState(_deltaT: number): void {
-        if (this.devTestingMode || FirebaseManager.state.mySlot === 0) {
+        if (this.devTestingMode || P2PManager.mySlot === 0) {
             return;
         }
 
@@ -1004,7 +995,7 @@ export default abstract class MBLevel extends Scene {
         if (type === PacketType.STATE) {
             const pkt = decodeState(data);
             // Store under the remote player's slot
-            const remoteSlot = FirebaseManager.state.mySlot === 1 ? 2 : 1;
+            const remoteSlot = P2PManager.mySlot === 1 ? 2 : 1;
             if (remoteSlot === 1) {
                 this.remoteStateP1 = pkt;
             } else {
@@ -1034,7 +1025,7 @@ export default abstract class MBLevel extends Scene {
 
     /** Build and send the local player's state packet over WebRTC. */
     private _sendLocalStateP2P(): void {
-        const mySlot = FirebaseManager.state.mySlot as 1 | 2;
+        const mySlot = P2PManager.mySlot as 1 | 2;
         const localPlayer = mySlot === 1 ? this.player : this.player2;
         if (localPlayer === undefined) return;
 
@@ -1059,7 +1050,7 @@ export default abstract class MBLevel extends Scene {
 
     /** Apply the latest received state packet for the remote player. */
     private _applyRemoteStateP2P(): void {
-        const remoteSlot = FirebaseManager.state.mySlot === 1 ? 2 : 1;
+        const remoteSlot = P2PManager.mySlot === 1 ? 2 : 1;
         const pkt = remoteSlot === 1 ? this.remoteStateP1 : this.remoteStateP2;
         const remotePlayer = remoteSlot === 1 ? this.player : this.player2;
         if (pkt === null || remotePlayer === undefined) return;
@@ -1089,52 +1080,6 @@ export default abstract class MBLevel extends Scene {
     protected sendNetEvent(eventId: number, playerNum: 1 | 2, respawnX?: number, respawnY?: number): void {
         if (!P2PManager.isConnected) return;
         P2PManager.send(encodeEvent({ eventId, playerNum, respawnX, respawnY }));
-    }
-
-    // -------------------------------------------------------------------------
-    // Firebase fallback (used until WebRTC connects)
-    // -------------------------------------------------------------------------
-
-    private _publishLocalStateFirebase(): void {
-        const player1Controller = this.player.ai as PlayerController;
-        if (player1Controller.isLocalPlayer) {
-            FirebaseManager.publishPlayerState(1, this._makeRuntimePlayerState(this.player)).catch(() => {});
-        }
-        if (this.player2 !== undefined) {
-            const player2Controller = this.player2.ai as PlayerController;
-            if (player2Controller.isLocalPlayer) {
-                FirebaseManager.publishPlayerState(2, this._makeRuntimePlayerState(this.player2)).catch(() => {});
-            }
-        }
-    }
-
-    private _makeRuntimePlayerState(player: AnimatedSprite): RuntimePlayerState {
-        return {
-            x: player.position.x,
-            y: player.position.y,
-            invertX: player.invertX,
-            rotation: player.rotation,
-            updatedAt: Date.now(),
-        };
-    }
-
-    private _applyRemoteStateFirebase(slot: 1 | 2, player: AnimatedSprite, lastPosition: Vec2): void {
-        const controller = player.ai as PlayerController;
-        if (controller.isLocalPlayer) return;
-
-        const runtimeState = FirebaseManager.state.runtimePlayers[slot];
-        if (!runtimeState) return;
-
-        const newPosition = new Vec2(runtimeState.x, runtimeState.y);
-        const dx = newPosition.x - lastPosition.x;
-        const dy = newPosition.y - lastPosition.y;
-        const moved = dx * dx + dy * dy > 1;
-
-        player.position.copy(newPosition);
-        player.invertX = runtimeState.invertX;
-        player.rotation = runtimeState.rotation;
-        player.animation.playIfNotAlready(moved ? PlayerAnimations.WALK : PlayerAnimations.IDLE);
-        lastPosition.copy(newPosition);
     }
 
     // -------------------------------------------------------------------------

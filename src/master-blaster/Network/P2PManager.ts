@@ -1,192 +1,215 @@
 /**
- * Manages a WebRTC peer-to-peer DataChannel between two players.
- * Firebase is used only for signaling (offer/answer/ICE candidate exchange).
- * All game data flows directly P2P after the connection is established.
+ * Manages a WebRTC peer-to-peer DataChannel between two players via PeerJS.
+ * PeerJS handles the WebRTC signaling (offer/answer/ICE) through its free
+ * hosted server. All game data flows directly P2P after the channel opens.
+ *
+ * No Firebase is used here.
  */
-
-const DB_BASE = "https://mirror-mage-default-rtdb.firebaseio.com";
-
-const ICE_SERVERS: RTCIceServer[] = [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-];
+// PeerJS is loaded from CDN as a global — no npm import needed.
+declare const Peer: any;
 
 type MessageHandler = (data: ArrayBuffer) => void;
 
+/** Peer ID prefix to avoid collisions with other PeerJS users */
+const PEER_PREFIX = "mm-";
+/** Sent by P1 to both clients to trigger game start */
+const PACKET_START = 0xfe;
+
 export default class P2PManager {
-    private static _pc: RTCPeerConnection | null = null;
-    private static _channel: RTCDataChannel | null = null;
+    private static _peer: any | null = null;
+    private static _conn: any | null = null;
     private static _connected: boolean = false;
+    private static _mySlot: 0 | 1 | 2 = 0;
+    private static _roomCode: string = "";
+    private static _playerCount: number = 0;
+
     private static _messageHandlers: MessageHandler[] = [];
     private static _openHandlers: Array<() => void> = [];
-    private static _icePollHandle: ReturnType<typeof setInterval> | null = null;
-    private static _seenRemoteCandidates: Set<string> = new Set();
-    private static _roomCode: string = "";
-    private static _isHost: boolean = false;
+    private static _peerConnectedHandlers: Array<() => void> = [];
+    private static _startHandlers: Array<() => void> = [];
 
-    public static get isConnected(): boolean {
-        return this._connected;
+    // -------------------------------------------------------------------------
+    // Public getters
+    // -------------------------------------------------------------------------
+
+    public static get isConnected(): boolean { return this._connected; }
+    public static get mySlot(): 0 | 1 | 2 { return this._mySlot; }
+    public static get roomCode(): string { return this._roomCode; }
+    public static get playerCount(): number { return this._playerCount; }
+
+    // -------------------------------------------------------------------------
+    // Lobby setup
+    // -------------------------------------------------------------------------
+
+    /** Read or generate the room code from the URL hash. Call before host/join. */
+    public static initRoom(): string {
+        let code = this._readCodeFromHash();
+        if (!code) {
+            code = this._generateCode();
+            window.location.hash = "room=" + code;
+        }
+        this._roomCode = code;
+        return code;
     }
 
+    /** P1 creates the room — registers a PeerJS peer with the room code as ID. */
+    public static host(): void {
+        this._mySlot = 1;
+        this._playerCount = 1;
+
+        this._peer = new Peer(PEER_PREFIX + this._roomCode);
+        this._peer.on("connection", (conn: any) => {
+            this._playerCount = 2;
+            for (const h of this._peerConnectedHandlers) h();
+            this._wireConn(conn);
+        });
+        this._peer.on("error", (e: any) => console.error("[P2P host]", e));
+    }
+
+    /** P2 joins an existing room — connects to P1's PeerJS peer ID. */
+    public static join(): void {
+        this._mySlot = 2;
+        this._playerCount = 1;
+
+        this._peer = new Peer();
+        this._peer.on("open", () => {
+            const conn = this._peer!.connect(PEER_PREFIX + this._roomCode, {
+                reliable: true,
+                serialization: "raw",
+            });
+            this._wireConn(conn);
+        });
+        this._peer.on("error", (e: any) => console.error("[P2P guest]", e));
+    }
+
+    // -------------------------------------------------------------------------
+    // Sending
+    // -------------------------------------------------------------------------
+
+    public static send(data: ArrayBuffer): void {
+        if (this._conn?.open) {
+            this._conn.send(data);
+        }
+    }
+
+    /**
+     * P1 calls this to start the game.
+     * Sends a start packet to P2 and triggers local start handlers immediately.
+     */
+    public static requestStart(): void {
+        const buf = new ArrayBuffer(1);
+        new DataView(buf).setUint8(0, PACKET_START);
+        this.send(buf);
+        this._fireStart();
+    }
+
+    // -------------------------------------------------------------------------
+    // Callbacks
+    // -------------------------------------------------------------------------
+
+    /** Registers a handler for incoming game-data packets. */
     public static onMessage(handler: MessageHandler): void {
         this._messageHandlers.push(handler);
     }
 
+    /** Fires when the P2P DataChannel is fully open and ready for game data. */
     public static onOpen(handler: () => void): void {
-        if (this._connected) {
-            handler();
-        } else {
-            this._openHandlers.push(handler);
-        }
+        if (this._connected) handler();
+        else this._openHandlers.push(handler);
     }
 
-    public static send(data: ArrayBuffer): void {
-        if (this._channel && this._channel.readyState === "open") {
-            this._channel.send(data);
-        }
+    /** Fires when the remote peer connects (playerCount becomes 2). */
+    public static onPeerConnected(handler: () => void): void {
+        if (this._playerCount >= 2) handler();
+        else this._peerConnectedHandlers.push(handler);
     }
 
-    public static async connect(roomCode: string, isHost: boolean): Promise<void> {
-        this._roomCode = roomCode;
-        this._isHost = isHost;
-        this._seenRemoteCandidates = new Set();
-
-        this._pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-
-        this._pc.onicecandidate = (e) => {
-            if (e.candidate) {
-                this._appendIceCandidate(e.candidate.toJSON());
-            }
-        };
-
-        if (isHost) {
-            this._channel = this._pc.createDataChannel("game", { ordered: true });
-            this._wireChannel(this._channel);
-
-            const offer = await this._pc.createOffer();
-            await this._pc.setLocalDescription(offer);
-            await this._putSignal("offer", { sdp: offer.sdp, type: offer.type });
-
-            // Wait for guest's answer
-            const answer = await this._pollSignal("answer");
-            await this._pc.setRemoteDescription(new RTCSessionDescription(answer));
-        } else {
-            this._pc.ondatachannel = (e) => {
-                this._channel = e.channel;
-                this._wireChannel(this._channel);
-            };
-
-            const offer = await this._pollSignal("offer");
-            await this._pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-            const answer = await this._pc.createAnswer();
-            await this._pc.setLocalDescription(answer);
-            await this._putSignal("answer", { sdp: answer.sdp, type: answer.type });
-        }
-
-        // Poll Firebase for the remote peer's ICE candidates frequently so connection establishes fast
-        this._icePollHandle = setInterval(() => this._fetchRemoteCandidates(), 300);
+    /** Fires on BOTH clients when P1 calls requestStart(). */
+    public static onStart(handler: () => void): void {
+        this._startHandlers.push(handler);
     }
+
+    // -------------------------------------------------------------------------
+    // Cleanup
+    // -------------------------------------------------------------------------
 
     public static disconnect(): void {
-        if (this._icePollHandle !== null) {
-            clearInterval(this._icePollHandle);
-            this._icePollHandle = null;
-        }
-        this._channel?.close();
-        this._pc?.close();
-        this._channel = null;
-        this._pc = null;
+        this._conn?.close();
+        this._peer?.destroy();
+        this._conn = null;
+        this._peer = null;
         this._connected = false;
+        this._mySlot = 0;
+        this._playerCount = 0;
+        this._messageHandlers = [];
+        this._openHandlers = [];
+        this._peerConnectedHandlers = [];
+        this._startHandlers = [];
     }
 
     // -------------------------------------------------------------------------
-    // Private helpers
+    // Internal
     // -------------------------------------------------------------------------
 
-    private static _wireChannel(channel: RTCDataChannel): void {
-        channel.binaryType = "arraybuffer";
+    private static _wireConn(conn: any): void {
+        this._conn = conn;
 
-        channel.onopen = () => {
+        conn.on("open", () => {
             this._connected = true;
-            if (this._icePollHandle !== null) {
-                clearInterval(this._icePollHandle);
-                this._icePollHandle = null;
-            }
+            this._playerCount = 2;
+            // Flush any deferred peer-connected handlers (P2 side)
+            for (const h of this._peerConnectedHandlers) h();
+            this._peerConnectedHandlers = [];
             for (const h of this._openHandlers) h();
             this._openHandlers = [];
-            console.log("[P2P] DataChannel open — game data now flows P2P");
-        };
+            console.log("[P2P] DataChannel open — all game data is P2P");
+        });
 
-        channel.onmessage = (e) => {
-            for (const h of this._messageHandlers) h(e.data as ArrayBuffer);
-        };
+        conn.on("data", (raw: unknown) => {
+            // Normalise to ArrayBuffer
+            let buf: ArrayBuffer;
+            if (raw instanceof ArrayBuffer) {
+                buf = raw;
+            } else if (ArrayBuffer.isView(raw)) {
+                buf = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
+            } else {
+                return;
+            }
 
-        channel.onclose = () => {
+            // Intercept lobby-start packet before forwarding to game handlers
+            if (buf.byteLength === 1 && new DataView(buf).getUint8(0) === PACKET_START) {
+                this._fireStart();
+                return;
+            }
+
+            for (const h of this._messageHandlers) h(buf);
+        });
+
+        conn.on("close", () => {
             this._connected = false;
             console.warn("[P2P] DataChannel closed");
-        };
-
-        channel.onerror = (e) => {
-            console.error("[P2P] DataChannel error", e);
-        };
-    }
-
-    private static async _putSignal(key: string, data: unknown): Promise<void> {
-        await fetch(`${DB_BASE}/rooms/${this._roomCode}/rtc/${key}.json`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
         });
+
+        conn.on("error", (e: any) => console.error("[P2P conn]", e));
     }
 
-    private static async _pollSignal(key: string): Promise<any> {
-        while (true) {
-            const r = await fetch(
-                `${DB_BASE}/rooms/${this._roomCode}/rtc/${key}.json?t=${Date.now()}`,
-                { cache: "no-store" }
-            );
-            const data = await r.json();
-            if (data) return data;
-            await new Promise<void>((res) => setTimeout(res, 400));
+    private static _fireStart(): void {
+        const handlers = this._startHandlers.slice();
+        this._startHandlers = [];
+        for (const h of handlers) h();
+    }
+
+    private static _readCodeFromHash(): string | null {
+        const match = window.location.hash.match(/room=([A-Z0-9]{6})/);
+        return match ? match[1] : null;
+    }
+
+    private static _generateCode(): string {
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let code = "";
+        for (let i = 0; i < 6; i++) {
+            code += chars[Math.floor(Math.random() * chars.length)];
         }
-    }
-
-    private static _appendIceCandidate(candidate: RTCIceCandidateInit): void {
-        const slot = this._isHost ? "ice_host" : "ice_guest";
-        const url = `${DB_BASE}/rooms/${this._roomCode}/rtc/${slot}.json`;
-        fetch(url + "?t=" + Date.now(), { cache: "no-store" })
-            .then((r) => r.json())
-            .then((existing: RTCIceCandidateInit[] | null) => {
-                const list = Array.isArray(existing) ? existing : [];
-                list.push(candidate);
-                return fetch(url, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(list),
-                });
-            })
-            .catch(() => {});
-    }
-
-    private static _fetchRemoteCandidates(): void {
-        if (!this._pc) return;
-        const slot = this._isHost ? "ice_guest" : "ice_host";
-        fetch(
-            `${DB_BASE}/rooms/${this._roomCode}/rtc/${slot}.json?t=${Date.now()}`,
-            { cache: "no-store" }
-        )
-            .then((r) => r.json())
-            .then((list: RTCIceCandidateInit[] | null) => {
-                if (!Array.isArray(list)) return;
-                for (const c of list) {
-                    const key = JSON.stringify(c);
-                    if (!this._seenRemoteCandidates.has(key)) {
-                        this._seenRemoteCandidates.add(key);
-                        this._pc!.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
-                    }
-                }
-            })
-            .catch(() => {});
+        return code;
     }
 }
