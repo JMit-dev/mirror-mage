@@ -14,6 +14,8 @@ type MessageHandler = (data: ArrayBuffer) => void;
 const PEER_PREFIX = "mm-";
 /** Sent by P1 to both clients to trigger game start */
 const PACKET_START = 0xfe;
+/** Sent by P1 to both clients to indicate level selection: [0xfd, levelByte] */
+const PACKET_LEVEL = 0xfd;
 
 export default class P2PManager {
     private static _peer: any | null = null;
@@ -27,6 +29,7 @@ export default class P2PManager {
     private static _openHandlers: Array<() => void> = [];
     private static _peerConnectedHandlers: Array<() => void> = [];
     private static _startHandlers: Array<() => void> = [];
+    private static _levelSelectHandlers: Array<(level: "level1" | "level2") => void> = [];
 
     // -------------------------------------------------------------------------
     // Public getters
@@ -129,6 +132,20 @@ export default class P2PManager {
         this._startHandlers.push(handler);
     }
 
+    /** P1 calls this to broadcast level selection to P2 and transition locally. */
+    public static selectLevel(level: "level1" | "level2"): void {
+        const buf = new ArrayBuffer(2);
+        const v = new DataView(buf);
+        v.setUint8(0, PACKET_LEVEL);
+        v.setUint8(1, level === "level1" ? 1 : 2);
+        this.send(buf);
+    }
+
+    /** Fires on P2 when P1 calls selectLevel(). */
+    public static onLevelSelected(handler: (level: "level1" | "level2") => void): void {
+        this._levelSelectHandlers.push(handler);
+    }
+
     // -------------------------------------------------------------------------
     // Cleanup
     // -------------------------------------------------------------------------
@@ -145,6 +162,7 @@ export default class P2PManager {
         this._openHandlers = [];
         this._peerConnectedHandlers = [];
         this._startHandlers = [];
+        this._levelSelectHandlers = [];
     }
 
     // -------------------------------------------------------------------------
@@ -176,9 +194,19 @@ export default class P2PManager {
                 return;
             }
 
-            // Intercept lobby-start packet before forwarding to game handlers
-            if (buf.byteLength === 1 && new DataView(buf).getUint8(0) === PACKET_START) {
+            const v = new DataView(buf);
+            const type = v.getUint8(0);
+
+            if (buf.byteLength === 1 && type === PACKET_START) {
                 this._fireStart();
+                return;
+            }
+
+            if (buf.byteLength === 2 && type === PACKET_LEVEL) {
+                const level: "level1" | "level2" = v.getUint8(1) === 1 ? "level1" : "level2";
+                const handlers = this._levelSelectHandlers.slice();
+                this._levelSelectHandlers = [];
+                for (const h of handlers) h(level);
                 return;
             }
 
