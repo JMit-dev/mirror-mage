@@ -88,7 +88,8 @@ export default class Level2 extends MBLevel {
         this.load.image(SpellSpriteKey.LIGHTNING_PROJECTILE, SpellSpritePath.LIGHTNING_PROJECTILE);
         this.load.image(SpellSpriteKey.LIGHTNING_PICKUP, SpellSpritePath.LIGHTNING_PICKUP);
         this.load.image(MBLevel.MIRROR_SPRITE_KEY, MBLevel.MIRROR_SPRITE_PATH);
-        this.load.image(MBLevel.STOCK_ICON_KEY, MBLevel.STOCK_ICON_PATH);
+        this.load.image(MBLevel.STOCK_ICON_P1_KEY, MBLevel.STOCK_ICON_P1_PATH);
+        this.load.image(MBLevel.STOCK_ICON_P2_KEY, MBLevel.STOCK_ICON_P2_PATH);
         // Level2-specific music
         this.load.audio(this.levelMusicKey, Level2.LEVEL_MUSIC_PATH);
         this.load.audio(this.jumpAudioKey, Level2.JUMP_AUDIO_PATH);
@@ -108,7 +109,8 @@ export default class Level2 extends MBLevel {
         this.load.keepImage(SpellSpriteKey.LIGHTNING_PROJECTILE);
         this.load.keepImage(SpellSpriteKey.LIGHTNING_PICKUP);
         this.load.keepImage(MBLevel.MIRROR_SPRITE_KEY);
-        this.load.keepImage(MBLevel.STOCK_ICON_KEY);
+        this.load.keepImage(MBLevel.STOCK_ICON_P1_KEY);
+        this.load.keepImage(MBLevel.STOCK_ICON_P2_KEY);
         this.load.keepAudio(this.jumpAudioKey);
         this.load.keepAudio(this.tileDestroyedAudioKey);
         this.load.keepAudio(this.deathAudioKey);

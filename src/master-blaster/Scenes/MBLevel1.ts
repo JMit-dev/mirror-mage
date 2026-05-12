@@ -110,7 +110,8 @@ export default class Level1 extends MBLevel {
         this.load.image(SpellSpriteKey.LIGHTNING_PROJECTILE, SpellSpritePath.LIGHTNING_PROJECTILE);
         this.load.image(SpellSpriteKey.LIGHTNING_PICKUP, SpellSpritePath.LIGHTNING_PICKUP);
         this.load.image(MBLevel.MIRROR_SPRITE_KEY, MBLevel.MIRROR_SPRITE_PATH);
-        this.load.image(MBLevel.STOCK_ICON_KEY, MBLevel.STOCK_ICON_PATH);
+        this.load.image(MBLevel.STOCK_ICON_P1_KEY, MBLevel.STOCK_ICON_P1_PATH);
+        this.load.image(MBLevel.STOCK_ICON_P2_KEY, MBLevel.STOCK_ICON_P2_PATH);
         this.load.image(Level1.ENEMY_SPRITE_KEY, Level1.ENEMY_SPRITE_PATH);
         this.load.image(Level1.ENEMY_SPELL_SPRITE_KEY, Level1.ENEMY_SPELL_SPRITE_PATH);
         // Audio and music
@@ -135,7 +136,8 @@ export default class Level1 extends MBLevel {
         this.load.keepImage(SpellSpriteKey.LIGHTNING_PROJECTILE);
         this.load.keepImage(SpellSpriteKey.LIGHTNING_PICKUP);
         this.load.keepImage(MBLevel.MIRROR_SPRITE_KEY);
-        this.load.keepImage(MBLevel.STOCK_ICON_KEY);
+        this.load.keepImage(MBLevel.STOCK_ICON_P1_KEY);
+        this.load.keepImage(MBLevel.STOCK_ICON_P2_KEY);
         this.load.keepImage(Level1.ENEMY_SPRITE_KEY);
         this.load.keepImage(Level1.ENEMY_SPELL_SPRITE_KEY);
         this.load.keepAudio(this.jumpAudioKey);

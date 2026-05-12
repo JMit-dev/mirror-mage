@@ -61,16 +61,18 @@ export default abstract class MBLevel extends Scene {
     protected static readonly PLAYER_TARGET_FRAME_SIZE = 32;
     public static readonly MIRROR_SPRITE_KEY = "PLAYER_MIRROR";
     public static readonly MIRROR_SPRITE_PATH = "game_assets/spritesheets/mirror temp.png";
-    public static readonly STOCK_ICON_KEY = "STOCK_ICON";
-    public static readonly STOCK_ICON_PATH = "game_assets/ui/stock-icon.svg";
+    public static readonly STOCK_ICON_P1_KEY = "STOCK_ICON_P1";
+    public static readonly STOCK_ICON_P1_PATH = "game_assets/ui/Life (1) transparent 256x256.png";
+    public static readonly STOCK_ICON_P2_KEY = "STOCK_ICON_P2";
+    public static readonly STOCK_ICON_P2_PATH = "game_assets/ui/Life (2) transparent 256x256.png";
     protected static readonly MIRROR_SCALE = 2;
     protected static readonly MIRROR_PADDING = 10;
     protected static readonly MIRROR_HITS_TO_BREAK = 3;
     protected static readonly STOCK_COUNT = 3;
-    protected static readonly STOCK_ICON_SCALE = 2;
+    protected static readonly STOCK_ICON_SCALE = 0.125;
     protected static readonly STOCK_ICON_START_P1 = new Vec2(24, 24);
     protected static readonly STOCK_ICON_START_P2 = new Vec2(1104, 24);
-    protected static readonly STOCK_ICON_SPACING = 24;
+    protected static readonly STOCK_ICON_SPACING = 36;
     protected static readonly POWERUP_MAX_ACTIVE = 3;
     protected static readonly POWERUP_RESPAWN_INTERVAL = 15;
     protected static readonly POWERUP_SCALE = 0.12;
@@ -803,7 +805,7 @@ export default abstract class MBLevel extends Scene {
         // P1 stocks — top-left
         this.stockIcons = [];
         for (let i = 0; i < MBLevel.STOCK_COUNT; i++) {
-            const icon = this.add.sprite(MBLevel.STOCK_ICON_KEY, MBLayers.UI);
+            const icon = this.add.sprite(MBLevel.STOCK_ICON_P1_KEY, MBLayers.UI);
             icon.scale.set(MBLevel.STOCK_ICON_SCALE, MBLevel.STOCK_ICON_SCALE);
             icon.position.copy(new Vec2(
                 MBLevel.STOCK_ICON_START_P1.x + i * MBLevel.STOCK_ICON_SPACING,
@@ -819,7 +821,7 @@ export default abstract class MBLevel extends Scene {
         }
 
         for (let i = 0; i < MBLevel.STOCK_COUNT; i++) {
-            const icon = this.add.sprite(MBLevel.STOCK_ICON_KEY, MBLayers.UI);
+            const icon = this.add.sprite(MBLevel.STOCK_ICON_P2_KEY, MBLayers.UI);
             icon.scale.set(MBLevel.STOCK_ICON_SCALE, MBLevel.STOCK_ICON_SCALE);
             icon.position.copy(new Vec2(
                 MBLevel.STOCK_ICON_START_P2.x - i * MBLevel.STOCK_ICON_SPACING,
