@@ -533,9 +533,12 @@ export default abstract class MBLevel extends Scene {
             }
 
             // Send dedicated SPELL_FIRED packet the frame a local projectile is spawned
-            if (isOnline && ownerPlayerNum === P2PManager.mySlot && projectile.firedThisFrame) {
-                this._sendSpellFiredPacket(ownerPlayerNum, projectile.spellType,
-                    projectile.sprite.position, projectile.direction);
+            if (projectile.firedThisFrame) {
+                if (isOnline && ownerPlayerNum === P2PManager.mySlot) {
+                    this._sendSpellFiredPacket(ownerPlayerNum, projectile.spellType,
+                        projectile.sprite.position, projectile.direction);
+                }
+                (projectile as ProjectileData).firedThisFrame = false; // Clear after this frame
             }
 
             // Deactivate once off-screen
@@ -648,12 +651,12 @@ export default abstract class MBLevel extends Scene {
             if (isAuthority) {
                 this.stocksRemaining2 -= 1;
                 this.updateStockDisplay();
+                // Send before returning so peer also transitions on game over
+                this.sendNetEvent(EventId.PLAYER_RESPAWN, 2, respawnTarget.x, respawnTarget.y);
                 if (this.stocksRemaining2 <= 0) {
                     this.sceneManager.changeToScene(MainMenu);
                     return;
                 }
-                // Tell peer: P2 died and respawned here (peer decrements their stock display)
-                this.sendNetEvent(EventId.PLAYER_RESPAWN, 2, respawnTarget.x, respawnTarget.y);
             }
             pc.respawn(respawnTarget);
             this.restoreMirror(2);
@@ -664,11 +667,12 @@ export default abstract class MBLevel extends Scene {
             if (isAuthority) {
                 this.stocksRemaining -= 1;
                 this.updateStockDisplay();
+                // Send before returning so peer also transitions on game over
+                this.sendNetEvent(EventId.PLAYER_RESPAWN, 1, respawnTarget.x, respawnTarget.y);
                 if (this.stocksRemaining <= 0) {
                     this.sceneManager.changeToScene(MainMenu);
                     return;
                 }
-                this.sendNetEvent(EventId.PLAYER_RESPAWN, 1, respawnTarget.x, respawnTarget.y);
             }
             pc.respawn(respawnTarget);
             this.restoreMirror(1);

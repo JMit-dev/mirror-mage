@@ -70,7 +70,6 @@ export default class PlayerWeapon {
         this.cooldownRemaining = Math.max(0, this.cooldownRemaining - deltaT);
 
         for (const projectile of this.projectiles) {
-            projectile.firedThisFrame = false; // Clear after one frame
             if (!projectile.active) {
                 continue;
             }
