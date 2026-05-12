@@ -437,7 +437,10 @@ export default abstract class MBLevel extends Scene {
 
     private _handlePowerupSpawn(spawnIdx: number, spellType: SpellType): void {
         if (spawnIdx >= this.powerupSpawnPoints.length) return;
-        this._spawnPowerupAt(this.powerupSpawnPoints[spawnIdx], spellType);
+        const pos = this.powerupSpawnPoints[spawnIdx];
+        // Dedup: ignore if a powerup already exists at this position (e.g. resend after LEVEL_START)
+        if (this.activePowerups.some(p => p.spawnPosition.distanceSqTo(pos) < 1)) return;
+        this._spawnPowerupAt(pos, spellType);
     }
 
     private _handlePowerupRemove(spawnIdx: number): void {
@@ -463,6 +466,14 @@ export default abstract class MBLevel extends Scene {
             // When the level starts, reenable user input
             case MBEvents.LEVEL_START: {
                 Input.enableInput();
+                // P1 re-broadcasts active powerups so P2 receives them after its
+                // onMessage handler is registered (avoids the race at scene start)
+                if (!this.devTestingMode && !this.localCoopTestingMode && P2PManager.mySlot === 1 && P2PManager.isConnected) {
+                    for (const pu of this.activePowerups) {
+                        const spawnIdx = this.powerupSpawnPoints.findIndex(p => p.distanceSqTo(pu.spawnPosition) < 1);
+                        if (spawnIdx >= 0) this._sendPowerupSpawn(spawnIdx, pu.spellType);
+                    }
+                }
                 break;
             }
             // When the level ends, change the scene to the next level
