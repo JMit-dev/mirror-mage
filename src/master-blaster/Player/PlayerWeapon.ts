@@ -3,7 +3,7 @@ import Vec2 from "../../Wolfie2D/DataTypes/Vec2";
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import Scene from "../../Wolfie2D/Scene/Scene";
 import ResourceManager from "../../Wolfie2D/ResourceManager/ResourceManager";
-import { SpellSpecs, SpellType } from "../Spells/SpellTypes";
+import { ProjectileFrame, SpellSpecs, SpellType } from "../Spells/SpellTypes";
 
 type ProjectileData = {
     sprite: Sprite;
@@ -12,6 +12,8 @@ type ProjectileData = {
     active: boolean;
     spellType: SpellType;
     reflectedOwnerPlayerNum: 1 | 2 | null;
+    animationElapsed: number;
+    animationFrameIndex: number;
 };
 
 /**
@@ -21,11 +23,12 @@ export default class PlayerWeapon {
     public static readonly PROJECTILE_SPRITE_KEY = "PLAYER_PROJECTILE";
     public static readonly PROJECTILE_SPRITE_PATH = "game_assets/spritesheets/base spell.png";
 
-    protected static readonly PROJECTILE_LIFETIME = 3;
+    protected static readonly PROJECTILE_LIFETIME = 5;
     protected static readonly PROJECTILE_COOLDOWN = 2;
-    protected static readonly PROJECTILE_TARGET_SIZE = 16;
+    protected static readonly PROJECTILE_TARGET_SIZE = 24;
     protected static readonly PROJECTILE_POOL_SIZE = 3;
     protected static readonly PROJECTILE_SPAWN_PADDING = 8;
+    protected static readonly PROJECTILE_FRAME_DURATION = 0.25;
 
     protected projectiles: Array<ProjectileData>;
     protected cooldownRemaining: number;
@@ -49,7 +52,9 @@ export default class PlayerWeapon {
                 lifetimeRemaining: 0,
                 active: false,
                 spellType: SpellType.BASIC,
-                reflectedOwnerPlayerNum: null
+                reflectedOwnerPlayerNum: null,
+                animationElapsed: 0,
+                animationFrameIndex: 0
             });
         }
     }
@@ -68,6 +73,7 @@ export default class PlayerWeapon {
                 continue;
             }
 
+            this.updateProjectileAnimation(projectile, deltaT);
             projectile.sprite.move(projectile.direction.scaled(SpellSpecs[projectile.spellType].projectileSpeed * deltaT));
         }
     }
@@ -93,9 +99,12 @@ export default class PlayerWeapon {
         projectile.direction = direction;
         projectile.spellType = spellType;
         projectile.reflectedOwnerPlayerNum = null;
+        projectile.animationElapsed = 0;
+        projectile.animationFrameIndex = 0;
         projectile.lifetimeRemaining = PlayerWeapon.PROJECTILE_LIFETIME;
         projectile.active = true;
-        this.applyProjectileAppearance(projectile.sprite, SpellSpecs[spellType].projectileSpriteKey);
+        const spellSpec = SpellSpecs[spellType];
+        this.applyProjectileAppearance(projectile.sprite, spellSpec.projectileSpriteKey, spellSpec.projectileFrames?.[0]);
         projectile.sprite.position.copy(spawnPosition);
         projectile.sprite.invertX = facingLeft;
         projectile.sprite.visible = true;
@@ -137,18 +146,48 @@ export default class PlayerWeapon {
         projectile.active = false;
         projectile.lifetimeRemaining = 0;
         projectile.reflectedOwnerPlayerNum = null;
+        projectile.animationElapsed = 0;
+        projectile.animationFrameIndex = 0;
         projectile.sprite.visible = false;
         projectile.sprite.disablePhysics();
         projectile.sprite._velocity.zero();
     }
 
-    protected applyProjectileAppearance(sprite: Sprite, imageId: string): void {
+    protected updateProjectileAnimation(projectile: ProjectileData, deltaT: number): void {
+        const frames = SpellSpecs[projectile.spellType].projectileFrames;
+        if (frames === undefined || frames.length === 0) {
+            return;
+        }
+
+        projectile.animationElapsed += deltaT;
+        const nextFrameIndex = Math.min(
+            Math.floor(projectile.animationElapsed / PlayerWeapon.PROJECTILE_FRAME_DURATION),
+            frames.length - 1
+        );
+
+        if (nextFrameIndex === projectile.animationFrameIndex) {
+            return;
+        }
+
+        projectile.animationFrameIndex = nextFrameIndex;
+        this.applyProjectileAppearance(
+            projectile.sprite,
+            SpellSpecs[projectile.spellType].projectileSpriteKey,
+            frames[nextFrameIndex]
+        );
+    }
+
+    protected applyProjectileAppearance(sprite: Sprite, imageId: string, frame?: ProjectileFrame): void {
         const image = ResourceManager.getInstance().getImage(imageId);
+        const frameWidth = frame?.width ?? image.width;
+        const frameHeight = frame?.height ?? image.height;
+
         sprite.imageId = imageId;
-        sprite.size.set(image.width, image.height);
+        sprite.setImageOffset(frame === undefined ? Vec2.ZERO : new Vec2(frame.x, frame.y));
+        sprite.size.set(frameWidth, frameHeight);
         sprite.scale.set(
-            PlayerWeapon.PROJECTILE_TARGET_SIZE / image.width,
-            PlayerWeapon.PROJECTILE_TARGET_SIZE / image.height
+            PlayerWeapon.PROJECTILE_TARGET_SIZE / frameWidth,
+            PlayerWeapon.PROJECTILE_TARGET_SIZE / frameHeight
         );
 
         if (sprite.hasPhysics) {
