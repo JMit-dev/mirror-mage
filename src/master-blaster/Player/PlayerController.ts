@@ -18,6 +18,8 @@ import { MBEvents } from "../MBEvents";
 import Dead from "./PlayerStates/Dead";
 import FirebaseManager from "../Firebase/FirebaseManager";
 import { SpellType } from "../Spells/SpellTypes";
+import P2PManager from "../Network/P2PManager";
+import { encodeSpellType } from "../Network/NetPacket";
 
 /**
  * Animation keys for the player spritesheet
@@ -201,6 +203,19 @@ export default class PlayerController extends StateMachineAI {
 
         if (fired) {
             this.lastFiredSpell = this._currentSpell; // Capture before clearing for the STATE packet
+            // Send 0xf6 SPELL_FIRED packet immediately so peer can replicate the projectile
+            if (P2PManager.mySlot !== 0 && P2PManager.isConnected && this.lastFiredSpell !== null) {
+                const buf = new ArrayBuffer(19);
+                const v = new DataView(buf);
+                v.setUint8(0, 0xf6);
+                v.setUint8(1, this._playerNumber);
+                v.setUint8(2, encodeSpellType(this.lastFiredSpell));
+                v.setFloat32(3,  this.owner.position.x, true);
+                v.setFloat32(7,  this.owner.position.y, true);
+                v.setFloat32(11, this.aimDirection.x, true);
+                v.setFloat32(15, this.aimDirection.y, true);
+                P2PManager.send(buf);
+            }
             this._currentSpell = null; // Each spell is single-use — must pick up another
             this.emitter.fireEvent(GameEventType.PLAY_SOUND, {
                 key: PlayerWeapon.PROJECTILE_SHOOT_AUDIO_KEY,

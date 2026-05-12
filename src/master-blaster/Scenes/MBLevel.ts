@@ -427,18 +427,10 @@ export default abstract class MBLevel extends Scene {
         return true;
     }
 
-    /** Send a 0xf6 packet so the peer spawns the projectile directly. */
-    private _sendSpellFiredPacket(playerNum: 1 | 2, spellType: SpellType, pos: Vec2, dir: Vec2): void {
+    private _sendGameOver(): void {
         if (!P2PManager.isConnected) return;
-        const buf = new ArrayBuffer(19);
-        const v = new DataView(buf);
-        v.setUint8(0, 0xf6);
-        v.setUint8(1, playerNum);
-        v.setUint8(2, encodeSpellType(spellType));
-        v.setFloat32(3,  pos.x, true);
-        v.setFloat32(7,  pos.y, true);
-        v.setFloat32(11, dir.x, true);
-        v.setFloat32(15, dir.y, true);
+        const buf = new ArrayBuffer(1);
+        new DataView(buf).setUint8(0, 0xf5);
         P2PManager.send(buf);
     }
 
@@ -525,20 +517,9 @@ export default abstract class MBLevel extends Scene {
      * @param projectileId the id of the projectile
      */
     protected updateWeaponProjectiles(weaponSystem: PlayerWeapon, ownerPlayerNum: 1 | 2): void {
-        const isOnline = !this.devTestingMode && !this.localCoopTestingMode && P2PManager.mySlot !== 0;
-
         for (const projectile of weaponSystem.getProjectiles()) {
             if (!projectile.active) {
                 continue;
-            }
-
-            // Send dedicated SPELL_FIRED packet the frame a local projectile is spawned
-            if (projectile.firedThisFrame) {
-                if (isOnline && ownerPlayerNum === P2PManager.mySlot) {
-                    this._sendSpellFiredPacket(ownerPlayerNum, projectile.spellType,
-                        projectile.sprite.position, projectile.direction);
-                }
-                (projectile as ProjectileData).firedThisFrame = false; // Clear after this frame
             }
 
             // Deactivate once off-screen
@@ -651,12 +632,12 @@ export default abstract class MBLevel extends Scene {
             if (isAuthority) {
                 this.stocksRemaining2 -= 1;
                 this.updateStockDisplay();
-                // Send before returning so peer also transitions on game over
-                this.sendNetEvent(EventId.PLAYER_RESPAWN, 2, respawnTarget.x, respawnTarget.y);
                 if (this.stocksRemaining2 <= 0) {
+                    this._sendGameOver(); // Tell peer to also end the game
                     this.sceneManager.changeToScene(MainMenu);
                     return;
                 }
+                this.sendNetEvent(EventId.PLAYER_RESPAWN, 2, respawnTarget.x, respawnTarget.y);
             }
             pc.respawn(respawnTarget);
             this.restoreMirror(2);
@@ -667,12 +648,12 @@ export default abstract class MBLevel extends Scene {
             if (isAuthority) {
                 this.stocksRemaining -= 1;
                 this.updateStockDisplay();
-                // Send before returning so peer also transitions on game over
-                this.sendNetEvent(EventId.PLAYER_RESPAWN, 1, respawnTarget.x, respawnTarget.y);
                 if (this.stocksRemaining <= 0) {
+                    this._sendGameOver();
                     this.sceneManager.changeToScene(MainMenu);
                     return;
                 }
+                this.sendNetEvent(EventId.PLAYER_RESPAWN, 1, respawnTarget.x, respawnTarget.y);
             }
             pc.respawn(respawnTarget);
             this.restoreMirror(1);
@@ -1140,6 +1121,8 @@ export default abstract class MBLevel extends Scene {
             if (spellType !== null) this._handlePowerupSpawn(v.getUint16(1, true), spellType);
         } else if (type === 0xf7 && data.byteLength >= 3) {
             this._handlePowerupRemove(new DataView(data).getUint16(1, true));
+        } else if (type === 0xf5) {
+            this.sceneManager.changeToScene(MainMenu);
         } else if (type === 0xf6 && data.byteLength >= 19) {
             const v = new DataView(data);
             const playerNum = v.getUint8(1) as 1 | 2;
