@@ -4,10 +4,9 @@ import Label from "../../Wolfie2D/Nodes/UIElements/Label";
 import { UIElementType } from "../../Wolfie2D/Nodes/UIElements/UIElementTypes";
 import Scene from "../../Wolfie2D/Scene/Scene";
 import Color from "../../Wolfie2D/Utils/Color";
-import FirebaseManager from "../Firebase/FirebaseManager";
+import P2PManager from "../Network/P2PManager";
 import { MBControls } from "../MBControls";
 import MainMenu from "./MainMenu";
-import P2PManager from "../Network/P2PManager";
 
 const LAYER = "LOBBY";
 
@@ -18,19 +17,8 @@ export default class LobbyScene extends Scene {
     private slot1Label!: Label;
     private slot2Label!: Label;
     private statusLabel!: Label;
-    private startRequested: boolean = false;
-    private selectedLevel: "level1" | "level2" | "" = "";
-    private p2pPreConnectStarted: boolean = false;
-
-    public initScene(init: Record<string, any>): void {
-        this.selectedLevel = init?.selectedLevel === "level1" || init?.selectedLevel === "level2"
-            ? init.selectedLevel
-            : "";
-    }
 
     public startScene(): void {
-        FirebaseManager.initialize();
-
         Input.enableInput();
         this.addUILayer(LAYER);
 
@@ -38,163 +26,133 @@ export default class LobbyScene extends Scene {
         this.viewport.setFocus(half);
         this.viewport.setZoomLevel(1);
 
-        // Title
-        const title = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y - 240),
-            text: "MIRROR MAGE",
-        });
-        title.textColor = Color.BLACK;
-        title.fontSize = 64;
-        title.font = "PixelSimple";
+        // If a room code is already in the URL hash, we are P2 (guest).
+        const isGuest = !!window.location.hash.match(/room=[A-Z0-9]{6}/);
+        P2PManager.initRoom();
 
-        // Room code header
-        const codeHeader = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y - 160),
-            text: "ROOM CODE",
-        });
-        codeHeader.textColor = new Color(38, 32, 70);
-        codeHeader.fontSize = 22;
+        if (isGuest) {
+            P2PManager.join();
+        } else {
+            P2PManager.host();
+        }
 
-        // Room code — large and gold
-        this.roomCodeLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y - 95),
-            text: "------",
+        // Both clients transition here when P1 presses SPACE
+        P2PManager.onStart(() => {
+            this.sceneManager.changeToScene(MainMenu);
         });
-        this.roomCodeLabel.textColor = new Color(88, 72, 142);
-        this.roomCodeLabel.fontSize = 88;
-        this.roomCodeLabel.font = "PixelSimple";
 
-        // Share URL
-        const urlHeader = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y + 5),
-            text: "Share this link:",
-        });
-        urlHeader.textColor = new Color(45, 45, 55);
-        urlHeader.fontSize = 18;
-
-        this.urlLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y + 40),
-            text: "Loading...",
-        });
-        this.urlLabel.textColor = new Color(35, 105, 165);
-        this.urlLabel.fontSize = 18;
-
-        // Player count
-        this.playerCountLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y + 105),
-            text: "0 / 2  players",
-        });
-        this.playerCountLabel.textColor = Color.BLACK;
-        this.playerCountLabel.fontSize = 32;
-
-        // Slot indicators
-        this.slot1Label = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x - 160, half.y + 170),
-            text: "P1  [      ]",
-        });
-        this.slot1Label.textColor = new Color(80, 80, 80);
-        this.slot1Label.fontSize = 26;
-
-        this.slot2Label = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x + 160, half.y + 170),
-            text: "P2  [      ]",
-        });
-        this.slot2Label.textColor = new Color(80, 80, 80);
-        this.slot2Label.fontSize = 26;
-
-        // Status / start prompt
-        this.statusLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
-            position: new Vec2(half.x, half.y + 230),
-            text: "Waiting for players...",
-        });
-        this.statusLabel.textColor = new Color(140, 140, 140);
-        this.statusLabel.fontSize = 26;
+        this._buildUI(half);
     }
 
     public updateScene(_deltaT: number): void {
-        const s = FirebaseManager.state;
+        const slot  = P2PManager.mySlot;
+        const count = P2PManager.playerCount;
+        const code  = P2PManager.roomCode;
 
-        // Room code
-        if (s.roomCode) {
-            this.roomCodeLabel.text = s.roomCode;
-        }
+        this.roomCodeLabel.text    = code || "------";
+        this.urlLabel.text         = window.location.href;
+        this.playerCountLabel.text = count + " / 2  players";
 
-        // Join URL
-        if (s.joinUrl) {
-            this.urlLabel.text = s.joinUrl;
-        }
-
-        // Player count
-        this.playerCountLabel.text = s.playerCount + " / 2  players";
-
-        // Slot 1
-        if (s.playerCount >= 1) {
-            this.slot1Label.text = "P1  [ READY ]";
+        // Slot 1 indicator
+        if (count >= 1) {
+            this.slot1Label.text      = "P1  [ READY ]";
             this.slot1Label.textColor = new Color(80, 220, 80);
         } else {
-            this.slot1Label.text = "P1  [      ]";
+            this.slot1Label.text      = "P1  [      ]";
             this.slot1Label.textColor = new Color(80, 80, 80);
         }
 
-        // Slot 2
-        if (s.playerCount >= 2) {
-            this.slot2Label.text = "P2  [ READY ]";
+        // Slot 2 indicator
+        if (count >= 2) {
+            this.slot2Label.text      = "P2  [ READY ]";
             this.slot2Label.textColor = new Color(80, 220, 80);
         } else {
-            this.slot2Label.text = "P2  [      ]";
+            this.slot2Label.text      = "P2  [      ]";
             this.slot2Label.textColor = new Color(80, 80, 80);
         }
 
-        // Room full message
-        if (s.status === "unavailable") {
-            this.statusLabel.text = "Room is full — try a new link.";
-            this.statusLabel.textColor = new Color(220, 80, 80);
-            return;
-        }
-
-        if (s.status === "error") {
-            this.statusLabel.text = s.errorMsg || "Could not connect to Firebase.";
-            this.statusLabel.textColor = new Color(220, 80, 80);
-            return;
-        }
-
-        // Start P2P as soon as both players are present — gives the WebRTC connection
-        // time to establish before the level scene loads, avoiding the Firebase fallback jitter.
-        if (s.playerCount >= 2 && !this.p2pPreConnectStarted && s.mySlot !== 0 && s.roomCode) {
-            this.p2pPreConnectStarted = true;
-            P2PManager.connect(s.roomCode, s.mySlot === 1)
-                .catch((e) => console.warn("[P2P] pre-connect failed:", e));
-        }
-
-        // Ready — let host start
-        if (s.playerCount >= 2) {
-            if (s.mySlot === 1) {
-                this.statusLabel.text = "Press SPACE to start!";
+        // Status / start prompt
+        if (count >= 2) {
+            if (slot === 1) {
+                this.statusLabel.text      = "Press SPACE to start!";
                 this.statusLabel.textColor = new Color(80, 220, 80);
-                if (!this.startRequested && Input.isJustPressed(MBControls.JUMP)) {
-                    this.startRequested = true;
-                    this.startSelectedGame().catch(() => {
-                        this.startRequested = false;
-                    });
+                if (Input.isJustPressed(MBControls.JUMP)) {
+                    P2PManager.requestStart();
                 }
             } else {
-                this.statusLabel.text = "Waiting for host to start...";
+                this.statusLabel.text      = "Waiting for host to start...";
                 this.statusLabel.textColor = new Color(80, 220, 80);
             }
         } else {
-            this.statusLabel.text = "Waiting for players...";
+            this.statusLabel.text      = "Waiting for players...";
             this.statusLabel.textColor = new Color(140, 140, 140);
-        }
-
-        if (s.started) {
-            this.sceneManager.changeToScene(MainMenu);
         }
     }
 
-    private async startSelectedGame(): Promise<void> {
-        if (this.selectedLevel) {
-            await FirebaseManager.selectLevel(this.selectedLevel);
-        }
-        await FirebaseManager.startGame();
+    private _buildUI(half: Vec2): void {
+        const title = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
+            position: new Vec2(half.x, half.y - 290),
+            text: "MIRROR MAGE",
+        });
+        title.textColor = Color.WHITE;
+        title.fontSize  = 64;
+        title.font      = "PixelSimple";
+
+        const codeHeader = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
+            position: new Vec2(half.x, half.y - 170),
+            text: "ROOM CODE",
+        });
+        codeHeader.textColor = new Color(160, 160, 210);
+        codeHeader.fontSize  = 22;
+
+        this.roomCodeLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
+            position: new Vec2(half.x, half.y - 100),
+            text: "------",
+        });
+        this.roomCodeLabel.textColor = new Color(255, 215, 0);
+        this.roomCodeLabel.fontSize  = 88;
+        this.roomCodeLabel.font      = "PixelSimple";
+
+        const urlHeader = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
+            position: new Vec2(half.x, half.y + 10),
+            text: "Share this link:",
+        });
+        urlHeader.textColor = new Color(160, 160, 160);
+        urlHeader.fontSize  = 18;
+
+        this.urlLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
+            position: new Vec2(half.x, half.y + 45),
+            text: "Loading...",
+        });
+        this.urlLabel.textColor = new Color(120, 200, 255);
+        this.urlLabel.fontSize  = 18;
+
+        this.playerCountLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
+            position: new Vec2(half.x, half.y + 120),
+            text: "0 / 2  players",
+        });
+        this.playerCountLabel.textColor = Color.WHITE;
+        this.playerCountLabel.fontSize  = 32;
+
+        this.slot1Label = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
+            position: new Vec2(half.x - 160, half.y + 195),
+            text: "P1  [      ]",
+        });
+        this.slot1Label.textColor = new Color(80, 80, 80);
+        this.slot1Label.fontSize  = 26;
+
+        this.slot2Label = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
+            position: new Vec2(half.x + 160, half.y + 195),
+            text: "P2  [      ]",
+        });
+        this.slot2Label.textColor = new Color(80, 80, 80);
+        this.slot2Label.fontSize  = 26;
+
+        this.statusLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
+            position: new Vec2(half.x, half.y + 265),
+            text: "Waiting for players...",
+        });
+        this.statusLabel.textColor = new Color(140, 140, 140);
+        this.statusLabel.fontSize  = 26;
     }
 }

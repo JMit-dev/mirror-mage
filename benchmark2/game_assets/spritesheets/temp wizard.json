@@ -1,0 +1,105 @@
+{
+    "name": "TempWizard",
+    "spriteSheetImage": "temp wizard.png",
+    "spriteWidth": 100,
+    "spriteHeight": 100,
+    "leftBuffer": 0,
+    "rightBuffer": 0,
+    "topBuffer": 0,
+    "bottomBuffer": 0,
+    "columns": 1,
+    "rows": 1,
+    "animations": [
+        {
+            "name": "ATTACK_LEFT",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        },
+        {
+            "name": "ATTACK_RIGHT",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        },
+        {
+            "name": "FALL_LEFT",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        },
+        {
+            "name": "FALL_RIGHT",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        },
+        {
+            "name": "IDLE",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        },
+        {
+            "name": "JUMP_LEFT",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        },
+        {
+            "name": "JUMP_RIGHT",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        },
+        {
+            "name": "TAKE_DAMAGE_LEFT",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        },
+        {
+            "name": "TAKE_DAMAGE_RIGHT",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        },
+        {
+            "name": "WALK_LEFT",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        },
+        {
+            "name": "WALK_RIGHT",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        },
+        {
+            "name": "DYING",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        },
+        {
+            "name": "DEAD",
+            "repeat": true,
+            "frames": [
+                { "index": 0, "duration": 1 }
+            ]
+        }
+    ]
+}
