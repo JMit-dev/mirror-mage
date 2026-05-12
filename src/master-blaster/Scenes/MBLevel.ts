@@ -74,7 +74,7 @@ export default abstract class MBLevel extends Scene {
     protected static readonly STOCK_ICON_START_P2 = new Vec2(1104, 24);
     protected static readonly STOCK_ICON_SPACING = 36;
     protected static readonly POWERUP_MAX_ACTIVE = 3;
-    protected static readonly POWERUP_RESPAWN_INTERVAL = 15;
+    protected static readonly POWERUP_RESPAWN_INTERVAL = 3;
     protected static readonly POWERUP_SCALE = 0.12;
     protected static readonly POWERUP_PLATFORM_Y_OFFSET = 16;
     protected static readonly POWERUP_TYPES = [SpellType.FIRE, SpellType.ICE, SpellType.LIGHTNING];
