@@ -1,33 +1,35 @@
-# Master Baster
-This project demonstrates how to make an side scrolling type of game with simple collision detection and gravity where a player can jump and land on platforms. It also uses tiled background rendering and we can manipulate the background tiles dynamically. The game also uses a primitive particle system for its attack and even has sound and music. The game uses Wolfie2D, a game engine created by Richard McKenna to teach how game engines are constructed for CSE 380 (2D Game Programming) at Stony Brook University with lots and lots of design and implementation from Joe Weaver. Further help was given by Zachary Grandison, Peter Walsh, Andrew Ojeda, and Kevin Cai, all undergraduate students at Stony Brook University.
+# Mirror Mage
+Mirror Mage is a local and online PvP battle game about mages who fight with spells and enchanted mirrors. Players move through side-scrolling arenas, cast attacks at each other, and use their mirrors to deflect incoming magic back at their opponent. The goal is to outplay the other mage by timing attacks, positioning carefully, and turning enemy spells against them.
+
+The game is built in TypeScript with Wolfie2D, a game engine created for CSE 380 (2D Game Programming) at Stony Brook University.
 
 ## TODO
-1. Finish the multiplayer net code
-2. Add new music and design level layout for level 1 grass, level 2 ice castle, level 3 fire arena, and the title screen
-3. Add fire, ice, and lightning spells
-4. Add mirror reflection and damage
-5. New character player art
-6. Add a test flag to play levels singleplayer for testing
+1. Improve directed battle controls so players can aim and move more intentionally.
+2. Finish and stabilize local and online multiplayer.
+3. Add visually distinct fire, ice, and lightning spells.
+4. Make mirror reflection clear, reliable, and useful during fights.
+5. Give attacks different gameplay effects such as damage, knockback, slow, spell splitting or stun.
+6. Add new music and arena layouts for grass, ice castle, fire arena, and the title screen.
 
 ## Introduction
-In making this simple platformer game, using the Typescript programming language and the Wolfie2D game engine, one should continue to learn how all the pieces fit together and specifically develop an understanding of:
-* How to work with the Wolfie2D physics system
-* Adding physics to game nodes
-* Creating collision groups and triggers
-* Add collidable layers to tilemaps
-* Apply collision groups to tilemaps
-* How to play sounds and level music in Wolfie2D
-* How to create simple AI using finite-state machines
-* Resource management 
+Mirror Mage focuses on fast one-on-one magical duels. Each player controls a mage with movement, jumping, spell casting, and mirror defense. Battles are meant to reward timing and prediction: a player can pressure their opponent with spells, but a well-timed mirror can reflect that pressure back.
+
+The project uses the TypeScript programming language and the Wolfie2D game engine. It includes platforming movement, tilemap-based arenas, player collision, sound, music, spell effects, and multiplayer gameplay work.
 
 ## How to Play
-The controls for the game are as follows:
-* W: Jump
+Player 1 controls:
 * A: Move left
 * D: Move right
-* X: Attack (probably going to change this)
+* W or Space: Jump
+* X: Attack
 
-You should notice the attack button launches a burst of particles to the right of the player's sprite. There are no enemies in the game trying to kill you, but there is fall damage. The player's health is displayed by the health bar in the top-right corner. The goal is to make it to the level-end area, indicated by the purple box, without dying.
+Player 2 controls:
+* J or Left Arrow: Move left
+* L or Right Arrow: Move right
+* I or Up Arrow: Jump
+* B or Enter: Attack
+
+Use spells to damage the enemy mage and use mirror deflection to protect yourself from incoming magic. Win the duel by controlling space, timing attacks, and reflecting enemy spells back at them.
 
 ## Codebase Files
 The directory structure of the homework codebase looks similar to the tree diagram shown below.
