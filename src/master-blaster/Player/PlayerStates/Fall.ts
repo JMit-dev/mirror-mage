@@ -21,10 +21,7 @@ export default class Fall extends PlayerState {
         else {
             let dir = this.parent.inputDir;
             this.parent.velocity.x += dir.x * this.parent.speed / 3.5 - 0.3 * this.parent.velocity.x;
-            // Random horizontal drift and varied gravity for chaotic falling
-            this.parent.velocity.x += (Math.random() - 0.5) * 40;
-            const variedGravity = this.gravity + (Math.random() - 0.5) * 120;
-            this.parent.velocity.y += variedGravity * deltaT;
+            this.parent.velocity.y += this.gravity * deltaT;
             this.owner.move(this.parent.velocity.scaled(deltaT));
         }
 

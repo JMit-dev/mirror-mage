@@ -85,7 +85,7 @@ export default class PlayerController extends StateMachineAI {
     private _remoteJump: boolean = false;     // consumed after one read
     private _remoteAttack: boolean = false;   // consumed after one read
     public remoteMirrorAngle: number = 0;
-    // Current aim direction — Jump state overrides this with wobble; defaults to horizontal
+    // Current aim direction; defaults to horizontal from the player's facing direction.
     public aimDirection: Vec2 = new Vec2(1, 0);
     // The spell type used in the most recent fire — valid for one frame so the STATE packet can read it
     public lastFiredSpell: SpellType | null = null;
@@ -178,7 +178,7 @@ export default class PlayerController extends StateMachineAI {
     public get currentSpell(): SpellType | null { return this._currentSpell; }
 
     public update(deltaT: number): void {
-        // Default aim: horizontal from facing direction. Jump state overrides this with wobble.
+        // Default aim: horizontal from facing direction.
         this.aimDirection = new Vec2(this.owner.invertX ? -1 : 1, 0);
         this.lastFiredSpell = null; // Reset each frame; set below when firing
 
@@ -193,11 +193,11 @@ export default class PlayerController extends StateMachineAI {
             fired = (Input.isMouseJustPressed(0) || Input.isJustPressed(MBControls.ATTACK))
                 && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.aimDirection, this.currentSpell);
         } else if (FirebaseManager.state.mySlot === 0 && this._playerNumber === 2) {
-            // Local co-op / dev mode — P2 also gets wobble aim from aimDirection
+            // Local co-op / dev mode.
             fired = Input.isJustPressed(MBControls.P2_ATTACK)
                 && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.aimDirection, this.currentSpell);
         } else if (this.consumeRemoteAttack()) {
-            // Remote player — replicate with horizontal direction (we don't have their wobble angle)
+            // Remote player: replicate with horizontal direction.
             fired = this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, new Vec2(this.owner.invertX ? -1 : 1, 0), this.currentSpell);
         }
 
