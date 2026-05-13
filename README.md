@@ -21,13 +21,13 @@ Player 1 controls:
 * A: Move left
 * D: Move right
 * W or Space: Jump
-* X: Attack
+* E or Left Click: Attack
 
 Player 2 controls:
 * J or Left Arrow: Move left
 * L or Right Arrow: Move right
 * I or Up Arrow: Jump
-* B or Enter: Attack
+* U or Enter: Attack
 
 Use spells to damage the enemy mage and use mirror deflection to protect yourself from incoming magic. Win the duel by controlling space, timing attacks, and reflecting enemy spells back at them.
 

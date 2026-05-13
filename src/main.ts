@@ -13,11 +13,11 @@ import MainMenu from "./master-blaster/Scenes/MainMenu";
             {name: MBControls.MOVE_LEFT,     keys: ["a"]},
             {name: MBControls.MOVE_RIGHT,    keys: ["d"]},
             {name: MBControls.JUMP,          keys: ["w", "space"]},
-            {name: MBControls.ATTACK,        keys: ["x"]},
+            {name: MBControls.ATTACK,        keys: ["e"]},
             {name: MBControls.P2_MOVE_LEFT,  keys: ["j", "arrowleft"]},
             {name: MBControls.P2_MOVE_RIGHT, keys: ["l", "arrowright"]},
             {name: MBControls.P2_JUMP,       keys: ["i", "arrowup"]},
-            {name: MBControls.P2_ATTACK,     keys: ["b", "enter"]},
+            {name: MBControls.P2_ATTACK,     keys: ["u", "enter"]},
         ],
         useWebGL: false,                        // Tell the game we want to use webgl
         showDebug: false                       // Whether to show debug messages. You can change this to true if you want
