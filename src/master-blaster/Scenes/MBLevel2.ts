@@ -92,6 +92,7 @@ export default class Level2 extends MBLevel {
         this.load.image(SpellSpriteKey.FIRE_PROJECTILE, SpellSpritePath.FIRE_PROJECTILE);
         this.load.image(SpellSpriteKey.FIRE_PICKUP, SpellSpritePath.FIRE_PICKUP);
         this.load.image(SpellSpriteKey.ICE_PROJECTILE, SpellSpritePath.ICE_PROJECTILE);
+        this.load.image(SpellSpriteKey.ICE_SHARD_PROJECTILE, SpellSpritePath.ICE_SHARD_PROJECTILE);
         this.load.image(SpellSpriteKey.ICE_PICKUP, SpellSpritePath.ICE_PICKUP);
         this.load.image(SpellSpriteKey.LIGHTNING_PROJECTILE, SpellSpritePath.LIGHTNING_PROJECTILE);
         this.load.image(SpellSpriteKey.LIGHTNING_PICKUP, SpellSpritePath.LIGHTNING_PICKUP);
@@ -118,6 +119,7 @@ export default class Level2 extends MBLevel {
         this.load.keepImage(SpellSpriteKey.FIRE_PROJECTILE);
         this.load.keepImage(SpellSpriteKey.FIRE_PICKUP);
         this.load.keepImage(SpellSpriteKey.ICE_PROJECTILE);
+        this.load.keepImage(SpellSpriteKey.ICE_SHARD_PROJECTILE);
         this.load.keepImage(SpellSpriteKey.ICE_PICKUP);
         this.load.keepImage(SpellSpriteKey.LIGHTNING_PROJECTILE);
         this.load.keepImage(SpellSpriteKey.LIGHTNING_PICKUP);

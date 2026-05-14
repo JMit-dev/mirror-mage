@@ -167,7 +167,7 @@ export default class HowToScene extends Scene {
 
         const fireText = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
             position: new Vec2(size.x - 80, 650),
-            text: "Fire: fast shots that pressure rivals."
+            text: "Fire: Standard speed, no wall bounce, 1 mirror bounce."
         });
         fireText.font = "PixelSimple";
         fireText.fontSize = 22;
@@ -180,8 +180,8 @@ export default class HowToScene extends Scene {
         icePowerup.scale.set(0.32, 0.32);
 
         const iceText = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x - 80, 740),
-            text: "Ice: sharp shards for direct hits."
+            position: new Vec2(size.x - 80, 725),
+            text: "Ice: slower speed, 1st hit spawns 2 smaller shards."
         });
         iceText.font = "PixelSimple";
         iceText.fontSize = 22;
@@ -189,13 +189,23 @@ export default class HowToScene extends Scene {
         iceText.backgroundColor = Color.TRANSPARENT;
         iceText.borderColor = Color.TRANSPARENT;
 
+        const iceTextLine2 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
+            position: new Vec2(size.x - 80, 760),
+            text: "They shoot randomly. 6 bounces, then ice breaks."
+        });
+        iceTextLine2.font = "PixelSimple";
+        iceTextLine2.fontSize = 22;
+        iceTextLine2.textColor = Color.BLACK;
+        iceTextLine2.backgroundColor = Color.TRANSPARENT;
+        iceTextLine2.borderColor = Color.TRANSPARENT;
+
         const lightningPowerup = this.add.sprite(HowToScene.LIGHTNING_POWERUP_KEY, HowToLayers.UI);
         lightningPowerup.position.copy(new Vec2(size.x + 330, 830));
         lightningPowerup.scale.set(0.32, 0.32);
 
         const lightningText = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
             position: new Vec2(size.x - 80, 830),
-            text: "Lightning: quick bolts for sudden strikes."
+            text: "Lightning: fast speed, 10 wall bounces, unlimited mirrors."
         });
         lightningText.font = "PixelSimple";
         lightningText.fontSize = 22;
@@ -307,7 +317,7 @@ export default class HowToScene extends Scene {
 
         const mirrorTextLine4 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
             position: new Vec2(size.x - 255, 1680),
-            text: "you can only use it 3 times."
+            text: "it breaks after 3 hits, then returns on respawn."
         });
         mirrorTextLine4.font = "PixelSimple";
         mirrorTextLine4.fontSize = 20;
@@ -345,7 +355,7 @@ export default class HowToScene extends Scene {
 
         this.registerScrollContent(
             title, mageOne, mageTwo, playerOneLabel, playerTwoLabel, body, controls,
-            spellTitle, firePowerup, fireText, icePowerup, iceText, lightningPowerup, lightningText,
+            spellTitle, firePowerup, fireText, icePowerup, iceText, iceTextLine2, lightningPowerup, lightningText,
             counterTitle, spellCounterTopLeft, spellCounterTopMiddle, spellCounterTopRight,
             counterTextLine1, counterTextLine2, counterTextLine3, counterTextLine4,
             mirrorTitle, mirrorTextLine1, mirrorTextLine2, mirrorTextLine3, mirrorTextLine4, mirror,

@@ -553,8 +553,12 @@ export default abstract class MBLevel extends Scene {
                 : undefined;
             const hitMirrorPlayer = this.getMirrorHitPlayer(projectile.sprite, initialMirrorPassThrough);
             if (hitMirrorPlayer !== null) {
+                weaponSystem.splitIceShardById(projectile.sprite.id);
                 this.damageMirror(hitMirrorPlayer);
                 this.sendNetEvent(EventId.MIRROR_HIT, hitMirrorPlayer);
+                if (!weaponSystem.recordHitById(projectile.sprite.id)) {
+                    continue;
+                }
                 weaponSystem.reflectById(projectile.sprite.id, hitMirrorPlayer);
                 continue;
             }
@@ -562,6 +566,10 @@ export default abstract class MBLevel extends Scene {
             const hitPlayer = this.getHitPlayer(projectile.sprite);
             if (hitPlayer !== null) {
                 this.damagePlayer(hitPlayer);
+                if (projectile.spellType === SpellType.ICE && weaponSystem.recordHitById(projectile.sprite.id)) {
+                    weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction));
+                    continue;
+                }
                 weaponSystem.deactivateById(projectile.sprite.id);
                 continue;
             }
@@ -580,8 +588,14 @@ export default abstract class MBLevel extends Scene {
     }
 
     protected handleProjectileTileHit(weaponSystem: PlayerWeapon, projectile: Readonly<ProjectileData>): void {
+        weaponSystem.splitIceShardById(projectile.sprite.id);
+
         if (projectile.spellType === SpellType.FIRE) {
             weaponSystem.deactivateById(projectile.sprite.id);
+            return;
+        }
+
+        if (!weaponSystem.recordHitById(projectile.sprite.id)) {
             return;
         }
 

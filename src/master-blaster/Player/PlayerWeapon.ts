@@ -3,7 +3,7 @@ import Vec2 from "../../Wolfie2D/DataTypes/Vec2";
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import Scene from "../../Wolfie2D/Scene/Scene";
 import ResourceManager from "../../Wolfie2D/ResourceManager/ResourceManager";
-import { ProjectileFrame, SpellSpecs, SpellType } from "../Spells/SpellTypes";
+import { ProjectileFrame, SpellSpecs, SpellSpriteKey, SpellType } from "../Spells/SpellTypes";
 
 export type ProjectileData = {
     sprite: Sprite;
@@ -15,6 +15,9 @@ export type ProjectileData = {
     animationElapsed: number;
     animationFrameIndex: number;
     bounceCount: number;
+    splitShardSpawned: boolean;
+    isIceShard: boolean;
+    iceShardHitCount: number;
     firedThisFrame: boolean; // true only the frame tryFire activated this projectile
 };
 
@@ -30,7 +33,10 @@ export default class PlayerWeapon {
     protected static readonly PROJECTILE_LIFETIME = 12;
     protected static readonly PROJECTILE_COOLDOWN = 0.3;
     protected static readonly PROJECTILE_TARGET_SIZE = 24;
-    protected static readonly PROJECTILE_POOL_SIZE = 8;
+    protected static readonly ICE_SHARD_TARGET_SIZE = 14;
+    protected static readonly ICE_SHARD_COUNT = 2;
+    protected static readonly ICE_SHARD_MAX_HITS = 6;
+    protected static readonly PROJECTILE_POOL_SIZE = 16;
     protected static readonly PROJECTILE_SPAWN_PADDING = 8;
     protected static readonly PROJECTILE_FRAME_DURATION = 0.25;
     public static readonly MAX_BOUNCES = 10;
@@ -61,6 +67,9 @@ export default class PlayerWeapon {
                 animationElapsed: 0,
                 animationFrameIndex: 0,
                 bounceCount: 0,
+                splitShardSpawned: false,
+                isIceShard: false,
+                iceShardHitCount: 0,
                 firedThisFrame: false
             });
         }
@@ -108,6 +117,9 @@ export default class PlayerWeapon {
         projectile.animationElapsed = 0;
         projectile.animationFrameIndex = 0;
         projectile.bounceCount = 0;
+        projectile.splitShardSpawned = false;
+        projectile.isIceShard = false;
+        projectile.iceShardHitCount = 0;
         projectile.firedThisFrame = true;
         projectile.lifetimeRemaining = PlayerWeapon.PROJECTILE_LIFETIME;
         projectile.active = true;
@@ -137,6 +149,9 @@ export default class PlayerWeapon {
         projectile.animationElapsed = 0;
         projectile.animationFrameIndex = 0;
         projectile.bounceCount = 0;
+        projectile.splitShardSpawned = false;
+        projectile.isIceShard = false;
+        projectile.iceShardHitCount = 0;
         projectile.firedThisFrame = false; // Already a replication — don't re-send
         projectile.lifetimeRemaining = PlayerWeapon.PROJECTILE_LIFETIME;
         projectile.active = true;
@@ -147,6 +162,70 @@ export default class PlayerWeapon {
         projectile.sprite.enablePhysics();
         projectile.sprite._velocity.zero();
         projectile.sprite.collidedWithTilemap = false;
+        return true;
+    }
+
+    public splitIceShardById(id: number): void {
+        const source = this.projectiles.find(entry => entry.sprite.id === id);
+        if (
+            source === undefined ||
+            !source.active ||
+            source.spellType !== SpellType.ICE ||
+            source.isIceShard ||
+            source.splitShardSpawned
+        ) {
+            return;
+        }
+
+        source.splitShardSpawned = true;
+
+        for (let i = 0; i < PlayerWeapon.ICE_SHARD_COUNT; i++) {
+            const shard = this.projectiles.find(entry => !entry.active);
+            if (shard === undefined) {
+                return;
+            }
+
+            const angle = Math.random() * Math.PI * 2;
+            const direction = new Vec2(Math.cos(angle), Math.sin(angle));
+            shard.direction = direction;
+            shard.spellType = SpellType.ICE;
+            shard.reflectedOwnerPlayerNum = source.reflectedOwnerPlayerNum;
+            shard.animationElapsed = 0;
+            shard.animationFrameIndex = 0;
+            shard.bounceCount = 0;
+            shard.splitShardSpawned = true;
+            shard.isIceShard = true;
+            shard.iceShardHitCount = 0;
+            shard.firedThisFrame = false;
+            shard.lifetimeRemaining = PlayerWeapon.PROJECTILE_LIFETIME;
+            shard.active = true;
+            this.applyProjectileAppearance(shard.sprite, SpellSpriteKey.ICE_SHARD_PROJECTILE, undefined, PlayerWeapon.ICE_SHARD_TARGET_SIZE);
+            shard.sprite.position.copy(source.sprite.position);
+            shard.sprite.position.add(direction.scaled(source.sprite.boundary.halfSize.x + PlayerWeapon.PROJECTILE_SPAWN_PADDING));
+            shard.sprite.invertX = direction.x < 0;
+            shard.sprite.visible = true;
+            shard.sprite.enablePhysics();
+            shard.sprite._velocity.zero();
+            shard.sprite.collidedWithTilemap = false;
+        }
+    }
+
+    public recordHitById(id: number): boolean {
+        const projectile = this.projectiles.find(entry => entry.sprite.id === id);
+        if (projectile === undefined || !projectile.active) {
+            return false;
+        }
+
+        if (projectile.spellType !== SpellType.ICE) {
+            return true;
+        }
+
+        projectile.iceShardHitCount++;
+        if (projectile.iceShardHitCount >= PlayerWeapon.ICE_SHARD_MAX_HITS) {
+            this.deactivateProjectile(projectile);
+            return false;
+        }
+
         return true;
     }
 
@@ -219,6 +298,9 @@ export default class PlayerWeapon {
         projectile.reflectedOwnerPlayerNum = null;
         projectile.animationElapsed = 0;
         projectile.animationFrameIndex = 0;
+        projectile.splitShardSpawned = false;
+        projectile.isIceShard = false;
+        projectile.iceShardHitCount = 0;
         projectile.sprite.visible = false;
         projectile.sprite.disablePhysics();
         projectile.sprite._velocity.zero();
@@ -248,7 +330,7 @@ export default class PlayerWeapon {
         );
     }
 
-    protected applyProjectileAppearance(sprite: Sprite, imageId: string, frame?: ProjectileFrame): void {
+    protected applyProjectileAppearance(sprite: Sprite, imageId: string, frame?: ProjectileFrame, targetSize: number = PlayerWeapon.PROJECTILE_TARGET_SIZE): void {
         const image = ResourceManager.getInstance().getImage(imageId);
         const frameWidth = frame?.width ?? image.width;
         const frameHeight = frame?.height ?? image.height;
@@ -257,8 +339,8 @@ export default class PlayerWeapon {
         sprite.setImageOffset(frame === undefined ? Vec2.ZERO : new Vec2(frame.x, frame.y));
         sprite.size.set(frameWidth, frameHeight);
         sprite.scale.set(
-            PlayerWeapon.PROJECTILE_TARGET_SIZE / frameWidth,
-            PlayerWeapon.PROJECTILE_TARGET_SIZE / frameHeight
+            targetSize / frameWidth,
+            targetSize / frameHeight
         );
 
         if (sprite.hasPhysics) {
