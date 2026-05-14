@@ -642,7 +642,7 @@ export default abstract class MBLevel extends Scene {
                 this.updateStockDisplay();
                 if (this.stocksRemaining2 <= 0) {
                     this._sendGameOver(1);
-                    this.sceneManager.changeToScene(WinScene, { winner: 1 });
+                    this.sceneManager.changeToScene(WinScene, { winner: 1, onlineMode: isOnline });
                     return;
                 }
                 this.sendNetEvent(EventId.PLAYER_RESPAWN, 2, respawnTarget.x, respawnTarget.y);
@@ -658,7 +658,7 @@ export default abstract class MBLevel extends Scene {
                 this.updateStockDisplay();
                 if (this.stocksRemaining <= 0) {
                     this._sendGameOver(2);
-                    this.sceneManager.changeToScene(WinScene, { winner: 2 });
+                    this.sceneManager.changeToScene(WinScene, { winner: 2, onlineMode: isOnline });
                     return;
                 }
                 this.sendNetEvent(EventId.PLAYER_RESPAWN, 1, respawnTarget.x, respawnTarget.y);
@@ -1164,7 +1164,7 @@ export default abstract class MBLevel extends Scene {
             this._handlePowerupRemove(new DataView(data).getUint16(1, true));
         } else if (type === 0xf5) {
             const winner = data.byteLength >= 2 ? new DataView(data).getUint8(1) as 1 | 2 : 1;
-            this.sceneManager.changeToScene(WinScene, { winner: winner === 2 ? 2 : 1 });
+            this.sceneManager.changeToScene(WinScene, { winner: winner === 2 ? 2 : 1, onlineMode: true });
         } else if (type === 0xf6 && data.byteLength >= 19) {
             const v = new DataView(data);
             const playerNum = v.getUint8(1) as 1 | 2;
@@ -1195,11 +1195,11 @@ export default abstract class MBLevel extends Scene {
             if (evt.playerNum === 2) {
                 this.stocksRemaining2 = Math.max(0, this.stocksRemaining2 - 1);
                 this.updateStockDisplay();
-                if (this.stocksRemaining2 <= 0) { this.sceneManager.changeToScene(WinScene, { winner: 1 }); return; }
+                if (this.stocksRemaining2 <= 0) { this.sceneManager.changeToScene(WinScene, { winner: 1, onlineMode: true }); return; }
             } else {
                 this.stocksRemaining = Math.max(0, this.stocksRemaining - 1);
                 this.updateStockDisplay();
-                if (this.stocksRemaining <= 0) { this.sceneManager.changeToScene(WinScene, { winner: 2 }); return; }
+                if (this.stocksRemaining <= 0) { this.sceneManager.changeToScene(WinScene, { winner: 2, onlineMode: true }); return; }
             }
             const target = evt.playerNum === 2 ? this.player2 : this.player;
             if (target !== undefined) {

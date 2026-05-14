@@ -9,6 +9,7 @@ import Scene from "../../Wolfie2D/Scene/Scene";
 import SceneManager from "../../Wolfie2D/Scene/SceneManager";
 import Viewport from "../../Wolfie2D/SceneGraph/Viewport";
 import Color from "../../Wolfie2D/Utils/Color";
+import P2PManager from "../Network/P2PManager";
 import MainMenu from "./MainMenu";
 
 const WinLayers = {
@@ -24,8 +25,11 @@ export default class WinScene extends Scene {
     private static readonly WIZARD_2_KEY = "WIN_WIZARD_2";
     private static readonly WIZARD_2_PATH = "game_assets/spritesheets/wizard-win-2-transparent-256.png";
     private static readonly CONTINUE_LOCK_FRAMES = 12;
+    private static readonly ONLINE_RETURN_FRAMES = 240;
     private winner: 1 | 2 = 1;
+    private onlineMode = false;
     private continueLockFrames = WinScene.CONTINUE_LOCK_FRAMES;
+    private onlineReturnFrames = WinScene.ONLINE_RETURN_FRAMES;
 
     public constructor(viewport: Viewport, sceneManager: SceneManager, renderingManager: RenderingManager, options: Record<string, any>) {
         super(viewport, sceneManager, renderingManager, options);
@@ -33,7 +37,9 @@ export default class WinScene extends Scene {
 
     public initScene(init: Record<string, any>): void {
         this.winner = init?.winner === 2 ? 2 : 1;
+        this.onlineMode = init?.onlineMode === true;
         this.continueLockFrames = WinScene.CONTINUE_LOCK_FRAMES;
+        this.onlineReturnFrames = WinScene.ONLINE_RETURN_FRAMES;
     }
 
     public loadScene(): void {
@@ -77,7 +83,7 @@ export default class WinScene extends Scene {
 
         const prompt = <Label>this.add.uiElement(UIElementType.LABEL, WinLayers.UI, {
             position: new Vec2(size.x, size.y + 210),
-            text: "Click any button to continue"
+            text: this.onlineMode ? "Returning to title..." : "Click any button to continue"
         });
         prompt.font = "PixelSimple";
         prompt.fontSize = 30;
@@ -89,6 +95,16 @@ export default class WinScene extends Scene {
     public updateScene(): void {
         if (this.continueLockFrames > 0) {
             this.continueLockFrames -= 1;
+            return;
+        }
+
+        if (this.onlineMode) {
+            this.onlineReturnFrames -= 1;
+            if (this.onlineReturnFrames <= 0) {
+                P2PManager.disconnect();
+                window.location.hash = "";
+                this.sceneManager.changeToScene(MainMenu);
+            }
             return;
         }
 

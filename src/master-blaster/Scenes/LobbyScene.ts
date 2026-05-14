@@ -76,7 +76,7 @@ export default class LobbyScene extends Scene {
             if (slot === 1) {
                 this.statusLabel.text      = "Press SPACE to start!";
                 this.statusLabel.textColor = new Color(80, 220, 80);
-                if (Input.isJustPressed(MBControls.JUMP)) {
+                if (Input.isKeyJustPressed("space")) {
                     P2PManager.requestStart();
                 }
             } else {
