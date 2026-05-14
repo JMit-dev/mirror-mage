@@ -12,6 +12,7 @@ import HowToScene from "./HowToScene";
 import { RuntimeModeValue, setRuntimeMode } from "../config/RuntimeMode";
 import P2PManager from "../Network/P2PManager";
 import LobbyScene from "./LobbyScene";
+import BetaLobbyScene from "./BetaLobbyScene";
 
 export const MenuLayers = {
     MAIN: "MAIN"
@@ -25,6 +26,7 @@ export default class MainMenu extends Scene {
 
     private subtitle!: Label;
     private onlineButton!: Button;
+    private betaLobbyButton!: Button;
     private localButton!: Button;
     private howToButton!: Button;
     private level1Button!: Button;
@@ -94,7 +96,8 @@ export default class MainMenu extends Scene {
     protected createModeControls(size: Vec2): void {
         this.onlineButton = this.createButton(new Vec2(size.x - 130, size.y + 100), "Online");
         this.localButton  = this.createButton(new Vec2(size.x + 130, size.y + 100), "Local");
-        this.howToButton  = this.createButton(new Vec2(size.x, size.y + 200), "How to");
+        this.betaLobbyButton = this.createButton(new Vec2(size.x, size.y + 185), "Lobby(beta)");
+        this.howToButton  = this.createButton(new Vec2(size.x, size.y + 265), "How to");
 
         this.localButton.onClick = () => {
             this.pendingMode = RuntimeModeValue.LOCAL_COOP_TESTING;
@@ -103,6 +106,9 @@ export default class MainMenu extends Scene {
         this.onlineButton.onClick = () => {
             this.pendingMode = RuntimeModeValue.DEFAULT;
             this.showLevelMenu();
+        };
+        this.betaLobbyButton.onClick = () => {
+            this.sceneManager.changeToScene(BetaLobbyScene);
         };
         this.howToButton.onClick = () => {
             this.sceneManager.changeToScene(HowToScene);
@@ -124,6 +130,7 @@ export default class MainMenu extends Scene {
         this.pendingMode = RuntimeModeValue.DEFAULT;
         this.subtitle.text = "Choose a mode";
         this.onlineButton.visible  = true;
+        this.betaLobbyButton.visible = true;
         this.localButton.visible   = true;
         this.howToButton.visible   = true;
         this.level1Button.visible  = false;
@@ -135,6 +142,7 @@ export default class MainMenu extends Scene {
         const localMode = this.pendingMode === RuntimeModeValue.LOCAL_COOP_TESTING;
         this.subtitle.text = localMode ? "Choose a local level" : "Choose an online level";
         this.onlineButton.visible  = false;
+        this.betaLobbyButton.visible = false;
         this.localButton.visible   = false;
         this.howToButton.visible   = false;
         this.level1Button.visible  = true;
@@ -145,6 +153,7 @@ export default class MainMenu extends Scene {
     protected showWaitingForHost(): void {
         this.subtitle.text = "Waiting for host to choose level...";
         this.onlineButton.visible  = false;
+        this.betaLobbyButton.visible = false;
         this.localButton.visible   = false;
         this.howToButton.visible   = false;
         this.level1Button.visible  = false;

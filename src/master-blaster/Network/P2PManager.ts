@@ -45,12 +45,12 @@ export default class P2PManager {
     // -------------------------------------------------------------------------
 
     /** Read or generate the room code from the URL hash. Call before host/join. */
-    public static initRoom(): string {
-        let code = this._readCodeFromHash();
+    public static initRoom(roomCode?: string): string {
+        let code = roomCode ?? this._readCodeFromHash();
         if (!code) {
             code = this._generateCode();
-            window.location.hash = "room=" + code;
         }
+        window.location.hash = "room=" + code;
         this._roomCode = code;
         return code;
     }
