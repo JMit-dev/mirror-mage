@@ -548,8 +548,10 @@ export default abstract class MBLevel extends Scene {
                 continue;
             }
 
-            const projectileOwnerPlayerNum = projectile.reflectedOwnerPlayerNum ?? ownerPlayerNum;
-            const hitMirrorPlayer = this.getMirrorHitPlayer(projectile.sprite, projectileOwnerPlayerNum);
+            const initialMirrorPassThrough = projectile.reflectedOwnerPlayerNum === null && projectile.bounceCount === 0
+                ? ownerPlayerNum
+                : undefined;
+            const hitMirrorPlayer = this.getMirrorHitPlayer(projectile.sprite, initialMirrorPassThrough);
             if (hitMirrorPlayer !== null) {
                 this.damageMirror(hitMirrorPlayer);
                 this.sendNetEvent(EventId.MIRROR_HIT, hitMirrorPlayer);
@@ -557,7 +559,7 @@ export default abstract class MBLevel extends Scene {
                 continue;
             }
 
-            const hitPlayer = this.getHitPlayer(projectile.sprite, projectileOwnerPlayerNum);
+            const hitPlayer = this.getHitPlayer(projectile.sprite);
             if (hitPlayer !== null) {
                 this.damagePlayer(hitPlayer);
                 weaponSystem.deactivateById(projectile.sprite.id);
@@ -578,6 +580,11 @@ export default abstract class MBLevel extends Scene {
     }
 
     protected handleProjectileTileHit(weaponSystem: PlayerWeapon, projectile: Readonly<ProjectileData>): void {
+        if (projectile.spellType === SpellType.FIRE) {
+            weaponSystem.deactivateById(projectile.sprite.id);
+            return;
+        }
+
         weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction));
     }
 

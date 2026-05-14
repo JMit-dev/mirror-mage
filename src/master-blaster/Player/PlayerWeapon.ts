@@ -160,6 +160,14 @@ export default class PlayerWeapon {
             return false;
         }
 
+        if (projectile.spellType === SpellType.FIRE) {
+            projectile.bounceCount++;
+            if (projectile.bounceCount > 1) {
+                this.deactivateProjectile(projectile);
+                return false;
+            }
+        }
+
         projectile.direction = PlayerWeapon.getBounceDirection(projectile.direction);
 
         projectile.reflectedOwnerPlayerNum = reflectedOwnerPlayerNum;
