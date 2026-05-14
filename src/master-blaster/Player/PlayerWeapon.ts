@@ -160,11 +160,7 @@ export default class PlayerWeapon {
             return false;
         }
 
-        // Reverse direction with random chaos (±65 degrees) for unpredictable mirror bounces
-        const origAngle = Math.atan2(projectile.direction.y, projectile.direction.x);
-        const chaos = (Math.random() - 0.5) * Math.PI * 0.72;
-        const newAngle = origAngle + Math.PI + chaos;
-        projectile.direction = new Vec2(Math.cos(newAngle), Math.sin(newAngle));
+        projectile.direction = PlayerWeapon.getBounceDirection(projectile.direction);
 
         projectile.reflectedOwnerPlayerNum = reflectedOwnerPlayerNum;
         projectile.sprite.invertX = projectile.direction.x < 0;
@@ -191,6 +187,15 @@ export default class PlayerWeapon {
         projectile.sprite.collidedWithTilemap = false;
         // Push away from surface so physics doesn't immediately re-trigger the collision
         projectile.sprite.position.add(newDirection.scaled(projectile.sprite.boundary.halfSize.x + 5));
+    }
+
+    public static getBounceDirection(direction: Vec2): Vec2 {
+        if (Math.random() < 0.7) {
+            return direction.scaled(-1).normalize();
+        }
+
+        const angle = Math.random() * Math.PI * 2;
+        return new Vec2(Math.cos(angle), Math.sin(angle));
     }
 
     public deactivateById(id: number): void {

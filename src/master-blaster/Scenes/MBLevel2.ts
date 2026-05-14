@@ -138,7 +138,6 @@ export default class Level2 extends MBLevel {
         this.addLayer(Level2.ARENA_BACKGROUND_LAYER_KEY, -10);
         super.startScene();
         this.initializeArenaBackground();
-        this.hideTiledBackground();
         this.initializePowerups();
         this.nextLevel = MainMenu;
     }
@@ -172,13 +171,6 @@ export default class Level2 extends MBLevel {
         });
 
         arenaBackground.color = new Color(48, 48, 48);
-    }
-
-    protected hideTiledBackground(): void {
-        const tiledBackground = this.getTilemap(Level2.TILE_BACKGROUND_LAYER_KEY);
-        if (tiledBackground !== null) {
-            tiledBackground.visible = false;
-        }
     }
 
     protected initializeLevelEnds(): void {

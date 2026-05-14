@@ -578,41 +578,7 @@ export default abstract class MBLevel extends Scene {
     }
 
     protected handleProjectileTileHit(weaponSystem: PlayerWeapon, projectile: Readonly<ProjectileData>): void {
-        // Try to destroy a destructible tile on contact
-        const sprite = projectile.sprite;
-        const min = new Vec2(sprite.sweptRect.left, sprite.sweptRect.top);
-        const max = new Vec2(sprite.sweptRect.right, sprite.sweptRect.bottom);
-        const minIndex = this.destructable.getColRowAt(min);
-        const maxIndex = this.destructable.getColRowAt(max);
-
-        for (let col = minIndex.x; col <= maxIndex.x; col++) {
-            for (let row = minIndex.y; row <= maxIndex.y; row++) {
-                if (this.destructable.isTileCollidable(col, row) && this.projectileHitTile(this.destructable, sprite, col, row)) {
-                    this.emitter.fireEvent(GameEventType.PLAY_SOUND, { key: this.tileDestroyedAudioKey, loop: false, holdReference: false });
-                    this.destructable.setTileAtRowCol(new Vec2(col, row), 0);
-                    break;
-                }
-            }
-        }
-
-        // Bounce with chaotic angle instead of deactivating
-        const dir = projectile.direction;
-        let newDir: Vec2;
-        if (Math.abs(dir.x) >= Math.abs(dir.y)) {
-            // Vertical wall — guaranteed to send away from wall, wild Y component
-            newDir = new Vec2(
-                -Math.sign(dir.x) * (0.4 + Math.random() * 0.6),
-                (Math.random() - 0.5) * 2.2
-            );
-        } else {
-            // Floor or ceiling — guaranteed to send away from surface, wild X component
-            newDir = new Vec2(
-                (Math.random() - 0.5) * 2.2,
-                -Math.sign(dir.y) * (0.4 + Math.random() * 0.6)
-            );
-        }
-        const len = Math.sqrt(newDir.x * newDir.x + newDir.y * newDir.y);
-        weaponSystem.setBounceDirection(projectile.sprite.id, newDir.scaled(1 / len));
+        weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction));
     }
 
     /**

@@ -90,6 +90,13 @@ export default class TilemapRenderer {
         // Calculate the position to start a crop in the tileset image
         let left = col * width;
         let top = row * height;
+        let sourceWidth = width;
+        let sourceHeight = height;
+
+        if(tileset.getImageKey() === "MBTileset.png" && tileIndex === 8){
+            left += 1;
+            sourceWidth -= 1;
+        }
 
         // Calculate the position in the world to render the tile
         let x = Math.floor(tilemapRow * width * scale.x);
@@ -129,7 +136,7 @@ export default class TilemapRenderer {
             // Render the tile
             this.ctx.drawImage(image,
                 left, top,
-                width, height,
+                sourceWidth, sourceHeight,
                 -worldWidth/2, -worldHeight/2,
                 worldWidth, worldHeight);
 
@@ -141,7 +148,7 @@ export default class TilemapRenderer {
             // Render the tile
             this.ctx.drawImage(image,
                 left, top,
-                width, height,
+                sourceWidth, sourceHeight,
                 worldX, worldY,
                 worldWidth, worldHeight);
         }
