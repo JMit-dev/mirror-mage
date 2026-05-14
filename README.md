@@ -8,6 +8,7 @@ The game is built in TypeScript with Wolfie2D, a game engine created for CSE 380
 2. Make mirror reflection clear, reliable, and useful during fights.
 3. Add new music and arena layouts for grass, ice castle, fire arena, and the title screen.
 4. Make it so players can flip their character when mid-air and the walking animation plays if the jump is moving horizontally, but not if it is straight up and down.
+5. Finish how to page and put the images of mages and power up and describe them and how it works
 
 ## Introduction
 Mirror Mage focuses on fast one-on-one magical duels. Each player controls a mage with movement, jumping, spell casting, and mirror defense. Battles are meant to reward timing and prediction: a player can pressure their opponent with spells, but a well-timed mirror can reflect that pressure back.
