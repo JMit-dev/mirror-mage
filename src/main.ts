@@ -12,8 +12,8 @@ import MainMenu from "./master-blaster/Scenes/MainMenu";
         inputs: [
             {name: MBControls.MOVE_LEFT,     keys: ["a"]},
             {name: MBControls.MOVE_RIGHT,    keys: ["d"]},
-            {name: MBControls.JUMP,          keys: ["w", "space"]},
-            {name: MBControls.ATTACK,        keys: ["e"]},
+            {name: MBControls.JUMP,          keys: ["w"]},
+            {name: MBControls.ATTACK,        keys: ["e", "space"]},
             {name: MBControls.P2_MOVE_LEFT,  keys: ["j", "arrowleft"]},
             {name: MBControls.P2_MOVE_RIGHT, keys: ["l", "arrowright"]},
             {name: MBControls.P2_JUMP,       keys: ["i", "arrowup"]},
