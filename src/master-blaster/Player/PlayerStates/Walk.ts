@@ -4,6 +4,7 @@ import PlayerState from "./PlayerState";
 export default class Walk extends PlayerState {
 	onEnter(_options: Record<string, any>): void {
 		this.parent.speed = this.parent.MIN_SPEED;
+        this.owner.rotation = 0;
         this.owner.animation.playIfNotAlready(PlayerAnimations.WALK);
 	}
 

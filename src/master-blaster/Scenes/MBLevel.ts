@@ -67,6 +67,12 @@ export default abstract class MBLevel extends Scene {
     public static readonly STOCK_ICON_P2_PATH = "game_assets/ui/Life (2) transparent 256x256.png";
     public static readonly SPELL_COUNTER_KEY = "SPELL_COUNTER";
     public static readonly SPELL_COUNTER_PATH = "game_assets/spritesheets/Spell Counter Transparent 256.png";
+    public static readonly SPELL_COUNTER_FIRE_KEY = "SPELL_COUNTER_FIRE";
+    public static readonly SPELL_COUNTER_FIRE_PATH = "game_assets/spritesheets/Spell Counter Fire Transparent 256.png";
+    public static readonly SPELL_COUNTER_ICE_KEY = "SPELL_COUNTER_ICE";
+    public static readonly SPELL_COUNTER_ICE_PATH = "game_assets/spritesheets/Spell Counter Ice Transparent 256.png";
+    public static readonly SPELL_COUNTER_LIGHTNING_KEY = "SPELL_COUNTER_LIGHTNING";
+    public static readonly SPELL_COUNTER_LIGHTNING_PATH = "game_assets/spritesheets/Spell Counter Lightning Transparent 256.png";
     protected static readonly MIRROR_SCALE = 2;
     protected static readonly MIRROR_PADDING = 10;
     protected static readonly SPELL_COUNTER_SCALE = 0.075;
@@ -984,15 +990,32 @@ export default abstract class MBLevel extends Scene {
     }
 
     protected updateSpellCounterRowForPlayer(counters: Array<Sprite>, player: AnimatedSprite): void {
+        const playerController = player.ai as PlayerController;
+        const imageId = this.getSpellCounterImageId(playerController.currentSpell);
         const rowWidth = (counters.length - 1) * MBLevel.SPELL_COUNTER_SPACING;
         const startX = player.position.x - rowWidth / 2;
 
         for (let i = 0; i < counters.length; i++) {
             const counter = counters[i];
+            counter.imageId = imageId;
+            counter.visible = i < playerController.spellUsesRemaining;
             counter.position.set(
                 startX + i * MBLevel.SPELL_COUNTER_SPACING,
                 player.boundary.top - counter.boundary.halfSize.y - MBLevel.SPELL_COUNTER_HEAD_PADDING
             );
+        }
+    }
+
+    protected getSpellCounterImageId(spell: SpellType | null): string {
+        switch (spell) {
+            case SpellType.FIRE:
+                return MBLevel.SPELL_COUNTER_FIRE_KEY;
+            case SpellType.ICE:
+                return MBLevel.SPELL_COUNTER_ICE_KEY;
+            case SpellType.LIGHTNING:
+                return MBLevel.SPELL_COUNTER_LIGHTNING_KEY;
+            default:
+                return MBLevel.SPELL_COUNTER_KEY;
         }
     }
 
@@ -1211,8 +1234,9 @@ export default abstract class MBLevel extends Scene {
             mirrorAngle,
             posX:              localPlayer.position.x,
             posY:              localPlayer.position.y,
-            // lastFiredSpell is set the frame the attack fires (before currentSpell is cleared)
-            spellType:         encodeSpellType(attackJustPressed ? pc.lastFiredSpell : pc.currentSpell),
+            // lastFiredSpell is set the frame the attack fires, before a charge is spent.
+            spellType:         encodeSpellType(attackJustPressed ? (pc.lastFiredSpell ?? pc.currentSpell) : pc.currentSpell),
+            spellUsesRemaining: pc.spellUsesRemaining,
         };
         P2PManager.send(encodeState(pkt));
     }
@@ -1226,6 +1250,7 @@ export default abstract class MBLevel extends Scene {
 
         const pc = remotePlayer.ai as PlayerController;
         pc.remoteMirrorAngle = pkt.mirrorAngle;
+        pc.setCurrentSpell(decodeSpellType(pkt.spellType), pkt.spellUsesRemaining);
 
         const dx = pkt.posX - remotePlayer.position.x;
         const dy = pkt.posY - remotePlayer.position.y;

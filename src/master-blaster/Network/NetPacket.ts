@@ -67,10 +67,11 @@ export interface StatePacket {
     posX: number;
     posY: number;
     spellType: number;
+    spellUsesRemaining: number;
 }
 
 export function encodeState(p: StatePacket): ArrayBuffer {
-    const buf = new ArrayBuffer(15);
+    const buf = new ArrayBuffer(16);
     const v = new DataView(buf);
     v.setUint8(0, PacketType.STATE);
     const flags =
@@ -84,12 +85,14 @@ export function encodeState(p: StatePacket): ArrayBuffer {
     v.setFloat32(6, p.posX, true);
     v.setFloat32(10, p.posY, true);
     v.setUint8(14, p.spellType & 0xff);
+    v.setUint8(15, p.spellUsesRemaining & 0xff);
     return buf;
 }
 
 export function decodeState(buf: ArrayBuffer): StatePacket {
     const v = new DataView(buf);
     const flags = v.getUint8(1);
+    const spellType = v.getUint8(14);
     return {
         left:              (flags & 0x01) !== 0,
         right:             (flags & 0x02) !== 0,
@@ -99,7 +102,8 @@ export function decodeState(buf: ArrayBuffer): StatePacket {
         mirrorAngle:       v.getFloat32(2, true),
         posX:              v.getFloat32(6, true),
         posY:              v.getFloat32(10, true),
-        spellType:         v.getUint8(14),
+        spellType,
+        spellUsesRemaining: v.byteLength > 15 ? v.getUint8(15) : (spellType === 0 ? 0 : 1),
     };
 }
 

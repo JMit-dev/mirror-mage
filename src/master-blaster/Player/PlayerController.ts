@@ -37,14 +37,6 @@ export const PlayerAnimations = {
 } as const
 
 /**
- * Tween animations the player can player.
- */
-export const PlayerTweens = {
-    FLIP: "FLIP",
-    DEATH: "DEATH"
-} as const
-
-/**
  * Keys for the states the PlayerController can be in.
  */
 export const PlayerStates = {
@@ -61,6 +53,7 @@ export const PlayerStates = {
 export default class PlayerController extends StateMachineAI {
     public readonly MAX_SPEED: number = 280;
     public readonly MIN_SPEED: number = 160;
+    public static readonly SPELL_USES_PER_PICKUP: number = 3;
 
     /** Health and max health for the player */
     protected _health: number;
@@ -78,6 +71,7 @@ export default class PlayerController extends StateMachineAI {
     protected _playerNumber: 1 | 2 = 1;
     protected _isLocalPlayer: boolean = true;
     protected _currentSpell: SpellType | null;
+    protected _spellUsesRemaining: number;
 
     // Remote input state — fed by MBLevel when P2P packets arrive
     private _remoteLeft: boolean = false;
@@ -102,6 +96,7 @@ export default class PlayerController extends StateMachineAI {
         this.velocity = Vec2.ZERO;
         this.isDead = false;
         this._currentSpell = null;
+        this._spellUsesRemaining = 0;
 
         this.maxHealth = 1;
         this.health = 1;
@@ -176,6 +171,7 @@ export default class PlayerController extends StateMachineAI {
     public get playerNumber(): 1 | 2 { return this._playerNumber; }
     public get isLocalPlayer(): boolean { return this._isLocalPlayer; }
     public get currentSpell(): SpellType | null { return this._currentSpell; }
+    public get spellUsesRemaining(): number { return this._spellUsesRemaining; }
 
     public update(deltaT: number): void {
         // Default aim: horizontal from facing direction.
@@ -202,7 +198,7 @@ export default class PlayerController extends StateMachineAI {
         }
 
         if (fired) {
-            this.lastFiredSpell = this._currentSpell; // Capture before clearing for the STATE packet
+            this.lastFiredSpell = this._currentSpell; // Capture before spending a use for the STATE packet
             // Send 0xf6 SPELL_FIRED packet immediately so peer can replicate the projectile
             if (P2PManager.mySlot !== 0 && P2PManager.isConnected && this.lastFiredSpell !== null) {
                 const buf = new ArrayBuffer(19);
@@ -216,7 +212,10 @@ export default class PlayerController extends StateMachineAI {
                 v.setFloat32(15, this.aimDirection.y, true);
                 P2PManager.send(buf);
             }
-            this._currentSpell = null; // Each spell is single-use — must pick up another
+            this._spellUsesRemaining = Math.max(0, this._spellUsesRemaining - 1);
+            if (this._spellUsesRemaining === 0) {
+                this._currentSpell = null;
+            }
             this.emitter.fireEvent(GameEventType.PLAY_SOUND, {
                 key: PlayerWeapon.PROJECTILE_SHOOT_AUDIO_KEY,
                 loop: false,
@@ -235,6 +234,14 @@ export default class PlayerController extends StateMachineAI {
 
     public equipSpell(spell: SpellType): void {
         this._currentSpell = spell;
+        this._spellUsesRemaining = PlayerController.SPELL_USES_PER_PICKUP;
+    }
+
+    public setCurrentSpell(spell: SpellType | null, usesRemaining: number = spell === null ? 0 : PlayerController.SPELL_USES_PER_PICKUP): void {
+        this._spellUsesRemaining = spell === null
+            ? 0
+            : MathUtils.clamp(Math.floor(usesRemaining), 0, PlayerController.SPELL_USES_PER_PICKUP);
+        this._currentSpell = this._spellUsesRemaining > 0 ? spell : null;
     }
 
     public get isDead(): boolean { return this._isDead; }
@@ -261,6 +268,7 @@ export default class PlayerController extends StateMachineAI {
         this.isDead = false;
         this.velocity = Vec2.ZERO;
         this._currentSpell = null;
+        this._spellUsesRemaining = 0;
         this.owner.position.copy(position);
         this.owner.rotation = 0;
         this.owner.animation.stop();
