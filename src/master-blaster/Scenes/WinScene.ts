@@ -68,12 +68,12 @@ export default class WinScene extends Scene {
         title.borderColor = Color.TRANSPARENT;
 
         const trophy = <Sprite>this.add.sprite(WinScene.TROPHY_KEY, WinLayers.UI);
-        trophy.position.copy(new Vec2(size.x + 110, size.y - 20));
-        trophy.scale.set(0.42, 0.42);
+        trophy.position.copy(new Vec2(size.x + 125, size.y - 10));
+        trophy.scale.set(1.5, 1.5);
 
         const wizard = <Sprite>this.add.sprite(this.winner === 2 ? WinScene.WIZARD_2_KEY : WinScene.WIZARD_1_KEY, WinLayers.UI);
-        wizard.position.copy(new Vec2(size.x - 120, size.y + 8));
-        wizard.scale.set(0.58, 0.58);
+        wizard.position.copy(new Vec2(size.x - 135, size.y + 18));
+        wizard.scale.set(1.5, 1.5);
 
         const prompt = <Label>this.add.uiElement(UIElementType.LABEL, WinLayers.UI, {
             position: new Vec2(size.x, size.y + 210),
