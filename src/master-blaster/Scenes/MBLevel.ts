@@ -60,7 +60,7 @@ export default abstract class MBLevel extends Scene {
     /** Target frame size in world units to preserve original player on-screen size */
     protected static readonly PLAYER_TARGET_FRAME_SIZE = 32;
     public static readonly MIRROR_SPRITE_KEY = "PLAYER_MIRROR";
-    public static readonly MIRROR_SPRITE_PATH = "game_assets/spritesheets/mirror temp.png";
+    public static readonly MIRROR_SPRITE_PATH = "game_assets/spritesheets/Mirror Square 256x256.png";
     public static readonly STOCK_ICON_P1_KEY = "STOCK_ICON_P1";
     public static readonly STOCK_ICON_P1_PATH = "game_assets/ui/Life (1) transparent 256x256.png";
     public static readonly STOCK_ICON_P2_KEY = "STOCK_ICON_P2";
@@ -73,7 +73,7 @@ export default abstract class MBLevel extends Scene {
     public static readonly SPELL_COUNTER_ICE_PATH = "game_assets/spritesheets/Spell Counter Ice Transparent 256.png";
     public static readonly SPELL_COUNTER_LIGHTNING_KEY = "SPELL_COUNTER_LIGHTNING";
     public static readonly SPELL_COUNTER_LIGHTNING_PATH = "game_assets/spritesheets/Spell Counter Lightning Transparent 256.png";
-    protected static readonly MIRROR_SCALE = 2;
+    protected static readonly MIRROR_SCALE = 0.07;
     protected static readonly MIRROR_PADDING = 10;
     protected static readonly SPELL_COUNTER_SCALE = 0.075;
     protected static readonly SPELL_COUNTER_HEAD_PADDING = 8;

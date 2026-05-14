@@ -31,9 +31,11 @@ export default class HowToScene extends Scene {
     private static readonly SPELL_COUNTER_KEY = "HOW_TO_SPELL_COUNTER";
     private static readonly SPELL_COUNTER_PATH = "game_assets/spritesheets/Spell Counter Transparent 256.png";
     private static readonly MIRROR_KEY = "HOW_TO_MIRROR";
-    private static readonly MIRROR_PATH = "game_assets/spritesheets/mirror temp.png";
+    private static readonly MIRROR_PATH = "game_assets/spritesheets/Mirror Square 256x256.png";
+    private static readonly TROPHY_KEY = "HOW_TO_TROPHY";
+    private static readonly TROPHY_PATH = "game_assets/spritesheets/trophy-transparent-256.png";
     private static readonly SCROLL_STEP = 48;
-    private static readonly MAX_SCROLL = 1550;
+    private static readonly MAX_SCROLL = 1900;
 
     private scrollOffset = 0;
     private scrollContent: Array<{ node: CanvasNode, y: number }> = [];
@@ -50,6 +52,7 @@ export default class HowToScene extends Scene {
         this.load.image(HowToScene.LIGHTNING_POWERUP_KEY, HowToScene.LIGHTNING_POWERUP_PATH);
         this.load.image(HowToScene.SPELL_COUNTER_KEY, HowToScene.SPELL_COUNTER_PATH);
         this.load.image(HowToScene.MIRROR_KEY, HowToScene.MIRROR_PATH);
+        this.load.image(HowToScene.TROPHY_KEY, HowToScene.TROPHY_PATH);
     }
 
     public startScene(): void {
@@ -314,14 +317,39 @@ export default class HowToScene extends Scene {
 
         const mirror = this.add.sprite(HowToScene.MIRROR_KEY, HowToLayers.UI);
         mirror.position.copy(new Vec2(size.x + 300, 1605));
-        mirror.scale.set(10, 10);
+        mirror.scale.set(0.6, 0.6);
+
+        const goalTextLine1 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
+            position: new Vec2(size.x, 1840),
+            text: "Your goal is to best your fellow mage"
+        });
+        goalTextLine1.font = "PixelSimple";
+        goalTextLine1.fontSize = 26;
+        goalTextLine1.textColor = Color.BLACK;
+        goalTextLine1.backgroundColor = Color.TRANSPARENT;
+        goalTextLine1.borderColor = Color.TRANSPARENT;
+
+        const goalTextLine2 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
+            position: new Vec2(size.x, 1890),
+            text: "in combat and win."
+        });
+        goalTextLine2.font = "PixelSimple";
+        goalTextLine2.fontSize = 26;
+        goalTextLine2.textColor = Color.BLACK;
+        goalTextLine2.backgroundColor = Color.TRANSPARENT;
+        goalTextLine2.borderColor = Color.TRANSPARENT;
+
+        const trophy = this.add.sprite(HowToScene.TROPHY_KEY, HowToLayers.UI);
+        trophy.position.copy(new Vec2(size.x, 2010));
+        trophy.scale.set(1.1, 1.1);
 
         this.registerScrollContent(
             title, mageOne, mageTwo, playerOneLabel, playerTwoLabel, body, controls,
             spellTitle, firePowerup, fireText, icePowerup, iceText, lightningPowerup, lightningText,
             counterTitle, spellCounterTopLeft, spellCounterTopMiddle, spellCounterTopRight,
             counterTextLine1, counterTextLine2, counterTextLine3, counterTextLine4,
-            mirrorTitle, mirrorTextLine1, mirrorTextLine2, mirrorTextLine3, mirrorTextLine4, mirror
+            mirrorTitle, mirrorTextLine1, mirrorTextLine2, mirrorTextLine3, mirrorTextLine4, mirror,
+            goalTextLine1, goalTextLine2, trophy
         );
     }
 
