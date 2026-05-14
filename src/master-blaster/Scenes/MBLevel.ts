@@ -24,7 +24,7 @@ import { MBEvents } from "../MBEvents";
 import { MBControls } from "../MBControls";
 import { MBPhysicsGroups } from "../MBPhysicsGroups";
 import MBFactoryManager from "../Factory/MBFactoryManager";
-import MainMenu from "./MainMenu";
+import WinScene from "./WinScene";
 import AudioManager, { AudioChannelType } from "../../Wolfie2D/Sound/AudioManager";
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import { isDevTestingMode, isLocalCoopTestingMode } from "../config/RuntimeMode";
@@ -445,10 +445,12 @@ export default abstract class MBLevel extends Scene {
         return true;
     }
 
-    private _sendGameOver(): void {
+    private _sendGameOver(winner: 1 | 2): void {
         if (!P2PManager.isConnected) return;
-        const buf = new ArrayBuffer(1);
-        new DataView(buf).setUint8(0, 0xf5);
+        const buf = new ArrayBuffer(2);
+        const v = new DataView(buf);
+        v.setUint8(0, 0xf5);
+        v.setUint8(1, winner);
         P2PManager.send(buf);
     }
 
@@ -636,12 +638,12 @@ export default abstract class MBLevel extends Scene {
     }
 
     /**
-     * Handle a player death — decrement that player's stocks and respawn,
-     * or go to MainMenu if they've run out.
+     * Handle a player death by decrementing stocks.
+     * When a player runs out, the other player is the winner.
      */
     protected handlePlayerDeath(playerNum: 1 | 2 = 1): void {
         const isOnline = !this.devTestingMode && !this.localCoopTestingMode && P2PManager.mySlot !== 0;
-        // In online mode, only the owning client decrements stocks and broadcasts the respawn
+        // In online mode, only the owning client decrements stocks and broadcasts the respawn.
         const isAuthority = !isOnline || P2PManager.mySlot === playerNum;
 
         if (playerNum === 2 && this.player2 !== undefined) {
@@ -651,8 +653,8 @@ export default abstract class MBLevel extends Scene {
                 this.stocksRemaining2 -= 1;
                 this.updateStockDisplay();
                 if (this.stocksRemaining2 <= 0) {
-                    this._sendGameOver(); // Tell peer to also end the game
-                    this.sceneManager.changeToScene(MainMenu);
+                    this._sendGameOver(1);
+                    this.sceneManager.changeToScene(WinScene, { winner: 1 });
                     return;
                 }
                 this.sendNetEvent(EventId.PLAYER_RESPAWN, 2, respawnTarget.x, respawnTarget.y);
@@ -667,8 +669,8 @@ export default abstract class MBLevel extends Scene {
                 this.stocksRemaining -= 1;
                 this.updateStockDisplay();
                 if (this.stocksRemaining <= 0) {
-                    this._sendGameOver();
-                    this.sceneManager.changeToScene(MainMenu);
+                    this._sendGameOver(2);
+                    this.sceneManager.changeToScene(WinScene, { winner: 2 });
                     return;
                 }
                 this.sendNetEvent(EventId.PLAYER_RESPAWN, 1, respawnTarget.x, respawnTarget.y);
@@ -1173,7 +1175,8 @@ export default abstract class MBLevel extends Scene {
         } else if (type === 0xf7 && data.byteLength >= 3) {
             this._handlePowerupRemove(new DataView(data).getUint16(1, true));
         } else if (type === 0xf5) {
-            this.sceneManager.changeToScene(MainMenu);
+            const winner = data.byteLength >= 2 ? new DataView(data).getUint8(1) as 1 | 2 : 1;
+            this.sceneManager.changeToScene(WinScene, { winner: winner === 2 ? 2 : 1 });
         } else if (type === 0xf6 && data.byteLength >= 19) {
             const v = new DataView(data);
             const playerNum = v.getUint8(1) as 1 | 2;
@@ -1198,11 +1201,11 @@ export default abstract class MBLevel extends Scene {
             if (evt.playerNum === 2) {
                 this.stocksRemaining2 = Math.max(0, this.stocksRemaining2 - 1);
                 this.updateStockDisplay();
-                if (this.stocksRemaining2 <= 0) { this.sceneManager.changeToScene(MainMenu); return; }
+                if (this.stocksRemaining2 <= 0) { this.sceneManager.changeToScene(WinScene, { winner: 1 }); return; }
             } else {
                 this.stocksRemaining = Math.max(0, this.stocksRemaining - 1);
                 this.updateStockDisplay();
-                if (this.stocksRemaining <= 0) { this.sceneManager.changeToScene(MainMenu); return; }
+                if (this.stocksRemaining <= 0) { this.sceneManager.changeToScene(WinScene, { winner: 2 }); return; }
             }
             const target = evt.playerNum === 2 ? this.player2 : this.player;
             if (target !== undefined) {

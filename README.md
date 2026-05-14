@@ -10,6 +10,7 @@ The game is built in TypeScript with Wolfie2D, a game engine created for CSE 380
 4. Make mirror reflection clear, reliable, and useful during fights.
 5. Give attacks different gameplay effects such as damage, knockback, slow, spell splitting or stun.
 6. Add new music and arena layouts for grass, ice castle, fire arena, and the title screen.
+7. Tune spell behavior so ice can split and bounce twice on anything, fire bounces once and only on mirrors, and lightning bounces everywhere for at least five hits.
 
 ## Introduction
 Mirror Mage focuses on fast one-on-one magical duels. Each player controls a mage with movement, jumping, spell casting, and mirror defense. Battles are meant to reward timing and prediction: a player can pressure their opponent with spells, but a well-timed mirror can reflect that pressure back.
