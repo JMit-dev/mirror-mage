@@ -80,6 +80,7 @@ export default abstract class MBLevel extends Scene {
     protected static readonly SPELL_COUNTER_COUNT = 3;
     protected static readonly SPELL_COUNTER_SPACING = 16;
     protected static readonly MIRROR_HITS_TO_BREAK = 3;
+    protected static readonly DIRECTIONAL_MIRROR_AIM_ENABLED = false;
     protected static readonly STOCK_COUNT = 3;
     protected static readonly STOCK_ICON_SCALE = 0.125;
     protected static readonly STOCK_ICON_START_P1 = new Vec2(24, 24);
@@ -917,15 +918,15 @@ export default abstract class MBLevel extends Scene {
 
         this.mirror.visible = true;
         const playerController = this.player.ai as PlayerController;
-        if (this.localCoopTestingMode) {
+        if (this.localCoopTestingMode || !MBLevel.DIRECTIONAL_MIRROR_AIM_ENABLED) {
             this.mirrorDirection = new Vec2(this.player.invertX ? -1 : 1, 0);
-        } else if (playerController.isLocalPlayer) {
+        } else if (MBLevel.DIRECTIONAL_MIRROR_AIM_ENABLED && playerController.isLocalPlayer) {
             const mousePosition = Input.getGlobalMousePosition();
             const mouseDirection = this.player.position.dirTo(mousePosition);
             if (!mouseDirection.isZero()) {
                 this.mirrorDirection = mouseDirection;
             }
-        } else if (P2PManager.isConnected) {
+        } else if (MBLevel.DIRECTIONAL_MIRROR_AIM_ENABLED && P2PManager.isConnected) {
             const angle = playerController.remoteMirrorAngle;
             this.mirrorDirection = new Vec2(Math.cos(angle), Math.sin(angle));
         } else {
@@ -948,15 +949,15 @@ export default abstract class MBLevel extends Scene {
         // Use mySlot to determine authority — more reliable than isLocalPlayer at scene init time
         const p2IsLocal = P2PManager.mySlot === 2 || P2PManager.mySlot === 0;
 
-        if (this.localCoopTestingMode) {
+        if (this.localCoopTestingMode || !MBLevel.DIRECTIONAL_MIRROR_AIM_ENABLED) {
             this.mirror2Direction = new Vec2(this.player2.invertX ? -1 : 1, 0);
-        } else if (p2IsLocal) {
+        } else if (MBLevel.DIRECTIONAL_MIRROR_AIM_ENABLED && p2IsLocal) {
             const mousePosition = Input.getGlobalMousePosition();
             const mouseDirection = this.player2.position.dirTo(mousePosition);
             if (!mouseDirection.isZero()) {
                 this.mirror2Direction = mouseDirection;
             }
-        } else if (P2PManager.isConnected) {
+        } else if (MBLevel.DIRECTIONAL_MIRROR_AIM_ENABLED && P2PManager.isConnected) {
             const angle = player2Controller.remoteMirrorAngle;
             this.mirror2Direction = new Vec2(Math.cos(angle), Math.sin(angle));
         } else {
@@ -1172,7 +1173,13 @@ export default abstract class MBLevel extends Scene {
                 const pos = new Vec2(v.getFloat32(3, true), v.getFloat32(7, true));
                 const dir = new Vec2(v.getFloat32(11, true), v.getFloat32(15, true));
                 const remoteWeapon = playerNum === 1 ? this.playerWeaponSystem : this.player2WeaponSystem;
-                remoteWeapon.fireAtPosition(pos, dir, spellType);
+                const remotePlayer = playerNum === 1 ? this.player : this.player2;
+                const spawnDirection = dir.isZero()
+                    ? new Vec2(remotePlayer?.invertX ? -1 : 1, 0)
+                    : dir;
+                const projectileHalfSize = 12;
+                const spawnOffset = (remotePlayer?.boundary.halfSize.x ?? 16) + projectileHalfSize + 8;
+                remoteWeapon.fireAtPosition(pos.add(spawnDirection.scaled(spawnOffset)), spawnDirection, spellType);
             }
         }
     }
