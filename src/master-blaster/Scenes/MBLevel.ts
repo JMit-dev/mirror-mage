@@ -17,7 +17,7 @@ import Viewport from "../../Wolfie2D/SceneGraph/Viewport";
 import Timer from "../../Wolfie2D/Timing/Timer";
 import Color from "../../Wolfie2D/Utils/Color";
 import { EaseFunctionType } from "../../Wolfie2D/Utils/EaseFunctions";
-import PlayerController, { PlayerAnimations, PlayerTweens } from "../Player/PlayerController";
+import PlayerController, { PlayerAnimations } from "../Player/PlayerController";
 import PlayerWeapon, { ProjectileData } from "../Player/PlayerWeapon";
 
 import { MBEvents } from "../MBEvents";
@@ -65,8 +65,14 @@ export default abstract class MBLevel extends Scene {
     public static readonly STOCK_ICON_P1_PATH = "game_assets/ui/Life (1) transparent 256x256.png";
     public static readonly STOCK_ICON_P2_KEY = "STOCK_ICON_P2";
     public static readonly STOCK_ICON_P2_PATH = "game_assets/ui/Life (2) transparent 256x256.png";
+    public static readonly SPELL_COUNTER_KEY = "SPELL_COUNTER";
+    public static readonly SPELL_COUNTER_PATH = "game_assets/spritesheets/Spell Counter Transparent 256.png";
     protected static readonly MIRROR_SCALE = 2;
     protected static readonly MIRROR_PADDING = 10;
+    protected static readonly SPELL_COUNTER_SCALE = 0.075;
+    protected static readonly SPELL_COUNTER_HEAD_PADDING = 8;
+    protected static readonly SPELL_COUNTER_COUNT = 3;
+    protected static readonly SPELL_COUNTER_SPACING = 16;
     protected static readonly MIRROR_HITS_TO_BREAK = 3;
     protected static readonly STOCK_COUNT = 3;
     protected static readonly STOCK_ICON_SCALE = 0.125;
@@ -99,6 +105,8 @@ export default abstract class MBLevel extends Scene {
     /** Arc mirrors orbiting each player */
     protected mirror!: Sprite;
     protected mirror2!: Sprite;
+    protected spellCounters!: Array<Sprite>;
+    protected spellCounters2!: Array<Sprite>;
     protected mirrorDirection: Vec2 = Vec2.RIGHT;
     protected mirror2Direction: Vec2 = Vec2.RIGHT;
     protected mirrorHitsRemaining: number = MBLevel.MIRROR_HITS_TO_BREAK;
@@ -198,9 +206,11 @@ export default abstract class MBLevel extends Scene {
         // Initialize players and mirrors
         this.initializePlayer(this.playerSpriteKey);
         this.initializeMirror();
+        this.initializeSpellCounter();
         if ((this.localCoopTestingMode || !this.devTestingMode) && this.player2Spawn !== undefined) {
             this.initializePlayer2(this.player2SpriteKey);
             this.initializeMirror2();
+            this.initializeSpellCounter2();
         }
 
         // Initialize the viewport - this must come after the player has been initialized
@@ -237,11 +247,13 @@ export default abstract class MBLevel extends Scene {
 
     public updateScene(deltaT: number) {
         this.updateMirrorPosition();
+        this.updateSpellCounterPosition();
         this.playerWeaponSystem.update(deltaT);
         this.updateWeaponProjectiles(this.playerWeaponSystem, 1);
 
         if (this.player2 !== undefined) {
             this.updateMirror2Position();
+            this.updateSpellCounter2Position();
             this.player2WeaponSystem.update(deltaT);
             this.updateWeaponProjectiles(this.player2WeaponSystem, 2);
         }
@@ -808,21 +820,6 @@ export default abstract class MBLevel extends Scene {
         this.player.addPhysics(new AABB(this.player.position.clone(), this.player.boundary.getHalfSize().clone()));
         this.player.setGroup(MBPhysicsGroups.PLAYER);
 
-        // Give the player a flip animation for jumping
-        this.player.tweens.add(PlayerTweens.FLIP, {
-            startDelay: 0,
-            duration: 300,
-            effects: [
-                {
-                    property: TweenableProperties.rotation,
-                    resetOnComplete: true,
-                    start: 0,
-                    end: 2 * Math.PI,
-                    ease: EaseFunctionType.IN_OUT_SINE
-                }
-            ]
-        });
-
         // Give the player it's AI
         this.player.addAI(PlayerController, {
             weaponSystem: this.playerWeaponSystem,
@@ -853,6 +850,26 @@ export default abstract class MBLevel extends Scene {
         this.mirror2.scale.set(MBLevel.MIRROR_SCALE, MBLevel.MIRROR_SCALE);
         this.restoreMirror(2);
         this.updateMirror2Position();
+    }
+
+    protected initializeSpellCounter(): void {
+        this.spellCounters = this.createSpellCounterRow();
+        this.updateSpellCounterPosition();
+    }
+
+    protected initializeSpellCounter2(): void {
+        this.spellCounters2 = this.createSpellCounterRow();
+        this.updateSpellCounter2Position();
+    }
+
+    protected createSpellCounterRow(): Array<Sprite> {
+        const counters: Array<Sprite> = [];
+        for (let i = 0; i < MBLevel.SPELL_COUNTER_COUNT; i++) {
+            const counter = this.add.sprite(MBLevel.SPELL_COUNTER_KEY, MBLayers.PRIMARY);
+            counter.scale.set(MBLevel.SPELL_COUNTER_SCALE, MBLevel.SPELL_COUNTER_SCALE);
+            counters.push(counter);
+        }
+        return counters;
     }
 
     protected initializeStocks(): void {
@@ -954,6 +971,29 @@ export default abstract class MBLevel extends Scene {
         const orbitRadius = this.player2.boundary.halfSize.x + this.mirror2.boundary.halfSize.x + MBLevel.MIRROR_PADDING;
         this.mirror2.position.copy(this.player2.position.clone().add(this.mirror2Direction.scaled(orbitRadius)));
         this.mirror2.rotation = Math.atan2(-this.mirror2Direction.y, this.mirror2Direction.x);
+    }
+
+    protected updateSpellCounterPosition(): void {
+        if (this.player === undefined || this.spellCounters === undefined) return;
+        this.updateSpellCounterRowForPlayer(this.spellCounters, this.player);
+    }
+
+    protected updateSpellCounter2Position(): void {
+        if (this.player2 === undefined || this.spellCounters2 === undefined) return;
+        this.updateSpellCounterRowForPlayer(this.spellCounters2, this.player2);
+    }
+
+    protected updateSpellCounterRowForPlayer(counters: Array<Sprite>, player: AnimatedSprite): void {
+        const rowWidth = (counters.length - 1) * MBLevel.SPELL_COUNTER_SPACING;
+        const startX = player.position.x - rowWidth / 2;
+
+        for (let i = 0; i < counters.length; i++) {
+            const counter = counters[i];
+            counter.position.set(
+                startX + i * MBLevel.SPELL_COUNTER_SPACING,
+                player.boundary.top - counter.boundary.halfSize.y - MBLevel.SPELL_COUNTER_HEAD_PADDING
+            );
+        }
     }
 
     protected isMirrorActive(playerNum: 1 | 2): boolean {
@@ -1063,18 +1103,6 @@ export default abstract class MBLevel extends Scene {
 
         this.player2.addPhysics(new AABB(this.player2.position.clone(), this.player2.boundary.getHalfSize().clone()));
         this.player2.setGroup(MBPhysicsGroups.PLAYER);
-
-        this.player2.tweens.add(PlayerTweens.FLIP, {
-            startDelay: 0,
-            duration: 300,
-            effects: [{
-                property: TweenableProperties.rotation,
-                resetOnComplete: true,
-                start: 0,
-                end: 2 * Math.PI,
-                ease: EaseFunctionType.IN_OUT_SINE
-            }]
-        });
 
         this.player2.addAI(PlayerController, {
             weaponSystem: this.player2WeaponSystem,
