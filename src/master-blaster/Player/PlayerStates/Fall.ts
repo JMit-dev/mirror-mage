@@ -11,6 +11,7 @@ export default class Fall extends PlayerState {
     }
 
     update(deltaT: number): void {
+        super.update(deltaT);
 
         // If the player hits the ground, start idling and check if we should take damage
         if (this.owner.onGround) {

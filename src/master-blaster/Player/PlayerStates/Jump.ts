@@ -15,6 +15,8 @@ export default class Jump extends PlayerState {
 	}
 
 	public update(deltaT: number): void {
+        super.update(deltaT);
+
         if (this.owner.onGround) {
 			this.finished(PlayerStates.IDLE);
 		} else if(this.owner.onCeiling || this.parent.velocity.y >= 0){
