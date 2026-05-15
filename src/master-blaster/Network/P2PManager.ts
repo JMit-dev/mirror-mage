@@ -4,7 +4,7 @@
  *
  * No Firebase is used here.
  */
-// PeerJS is loaded from CDN as a global — no npm import needed.
+// PeerJS is loaded from CDN as a global, so no npm import is needed.
 declare const Peer: any;
 
 import { getRuntimeConfig, TurnMode, TurnModeValue } from "../config/RuntimeConfig";
@@ -12,15 +12,10 @@ import { getRuntimeConfig, TurnMode, TurnModeValue } from "../config/RuntimeConf
 type MessageHandler = (data: ArrayBuffer) => void;
 type FailureHandler = (reason: string) => void;
 
-/** Peer ID prefix to avoid collisions with other PeerJS users */
 const PEER_PREFIX = "mm-";
-/** Sent by host to both clients to trigger game start */
 const PACKET_START = 0xfe;
-/** Sent by host to all clients to indicate level selection: [0xfd, levelByte] */
 const PACKET_LEVEL = 0xfd;
-/** Sent by host to assign a slot to a newly connected guest: [0xfb, slotByte] */
 const PACKET_ASSIGN_SLOT = 0xfb;
-/** Sent by host to all clients when room population changes: [0xfa, playerCount] */
 const PACKET_ROOM_STATE = 0xfa;
 
 export default class P2PManager {
@@ -48,21 +43,12 @@ export default class P2PManager {
 
     private static _hostConnections: Map<1 | 2 | 3 | 4, any> = new Map();
 
-    // -------------------------------------------------------------------------
-    // Public getters
-    // -------------------------------------------------------------------------
-
     public static get isConnected(): boolean { return this._connected; }
     public static get transportMode(): TurnMode { return this._transportMode; }
     public static get mySlot(): 0 | 1 | 2 | 3 | 4 { return this._mySlot; }
     public static get roomCode(): string { return this._roomCode; }
     public static get playerCount(): number { return this._playerCount; }
 
-    // -------------------------------------------------------------------------
-    // Lobby setup
-    // -------------------------------------------------------------------------
-
-    /** Read or generate the room code from the URL hash. Call before host/join. */
     public static initRoom(roomCode?: string): string {
         let code = roomCode ?? this._readCodeFromHash();
         if (!code) {
@@ -73,7 +59,6 @@ export default class P2PManager {
         return code;
     }
 
-    /** P1 creates the room — registers a PeerJS peer with the room code as ID. */
     public static host(transportMode: TurnMode = TurnModeValue.P2P_THEN_TURN): void {
         this._prepareAttempt(transportMode);
         this._mySlot = 1;
@@ -105,7 +90,6 @@ export default class P2PManager {
         });
     }
 
-    /** P2+ joins an existing room — connects to the host's PeerJS peer ID. */
     public static join(transportMode: TurnMode = TurnModeValue.P2P_THEN_TURN): void {
         this._prepareAttempt(transportMode);
         this._mySlot = 0;
@@ -130,10 +114,6 @@ export default class P2PManager {
         });
     }
 
-    // -------------------------------------------------------------------------
-    // Sending
-    // -------------------------------------------------------------------------
-
     public static send(data: ArrayBuffer): void {
         if (this._mySlot === 1) {
             for (const conn of this._hostConnections.values()) {
@@ -150,38 +130,26 @@ export default class P2PManager {
         }
     }
 
-    /**
-     * P1 calls this to start the game.
-     * Sends a start packet to all guests and triggers local start handlers immediately.
-     */
     public static requestStart(): void {
         const buf = new ArrayBuffer(1);
         new DataView(buf).setUint8(0, PACKET_START);
         this.send(buf);
     }
 
-    // -------------------------------------------------------------------------
-    // Callbacks
-    // -------------------------------------------------------------------------
-
-    /** Registers a handler for incoming game-data packets. */
     public static onMessage(handler: MessageHandler): void {
         this._messageHandlers.push(handler);
     }
 
-    /** Fires when the P2P DataChannel is fully open and ready for game data. */
     public static onOpen(handler: () => void): void {
         if (this._connected) handler();
         else this._openHandlers.push(handler);
     }
 
-    /** Fires when the remote peer connects and the room count changes. */
     public static onPeerConnected(handler: () => void): void {
         if (this._playerCount >= 2) handler();
         else this._peerConnectedHandlers.push(handler);
     }
 
-    /** Fires on BOTH clients when P1 calls requestStart(). */
     public static onStart(handler: () => void): void {
         if (this._gameStarted) {
             handler();
@@ -190,7 +158,6 @@ export default class P2PManager {
         this._startHandlers.push(handler);
     }
 
-    /** P1 calls this to broadcast level selection to guests. */
     public static selectLevel(level: "level1" | "level2"): void {
         const buf = new ArrayBuffer(2);
         const v = new DataView(buf);
@@ -199,7 +166,6 @@ export default class P2PManager {
         this.send(buf);
     }
 
-    /** Fires on guests when P1 calls selectLevel(). */
     public static onLevelSelected(handler: (level: "level1" | "level2") => void): void {
         if (this._selectedLevel !== null) {
             handler(this._selectedLevel);
@@ -208,7 +174,6 @@ export default class P2PManager {
         this._levelSelectHandlers.push(handler);
     }
 
-    /** Fires when a guest receives their assigned slot number. */
     public static onSlotAssigned(handler: (slot: 1 | 2 | 3 | 4) => void): void {
         if (this._mySlot >= 1) {
             handler(this._mySlot as 1 | 2 | 3 | 4);
@@ -220,10 +185,6 @@ export default class P2PManager {
     public static onConnectionFailed(handler: FailureHandler): void {
         this._connectionFailureHandlers.push(handler);
     }
-
-    // -------------------------------------------------------------------------
-    // Cleanup
-    // -------------------------------------------------------------------------
 
     public static disconnect(clearHandlers: boolean = true): void {
         this._clearConnectTimeout();
@@ -256,10 +217,6 @@ export default class P2PManager {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Internal
-    // -------------------------------------------------------------------------
-
     private static _allocateHostSlot(): 2 | 3 | 4 | null {
         if (this._hostConnections.size >= 3) {
             return null;
@@ -290,7 +247,6 @@ export default class P2PManager {
                 return;
             }
 
-            // Relay gameplay packets from one guest to every other guest.
             this._relayFromHostConn(slot, buf);
             this._dispatchLocal(buf);
         });
@@ -312,7 +268,7 @@ export default class P2PManager {
             this._clearConnectTimeout();
             for (const h of this._openHandlers) h();
             this._openHandlers = [];
-            console.log("[P2P] DataChannel open — all game data is P2P");
+            console.log("[P2P] DataChannel open and ready");
         });
 
         conn.on("data", (raw: unknown) => {
