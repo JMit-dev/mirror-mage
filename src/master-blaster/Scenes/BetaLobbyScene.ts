@@ -1,6 +1,7 @@
 import Vec2 from "../../Wolfie2D/DataTypes/Vec2";
 import Input from "../../Wolfie2D/Input/Input";
 import Button from "../../Wolfie2D/Nodes/UIElements/Button";
+import { HAlign } from "../../Wolfie2D/Nodes/UIElements/Label";
 import Label from "../../Wolfie2D/Nodes/UIElements/Label";
 import { UIElementType } from "../../Wolfie2D/Nodes/UIElements/UIElementTypes";
 import Scene from "../../Wolfie2D/Scene/Scene";
@@ -38,6 +39,7 @@ export default class BetaLobbyScene extends Scene {
     private waitingRoomCodeLabel!: Label;
     private waitingRoomPlayersLabel!: Label;
     private waitingRoomTransportLabel!: Label;
+    private waitingRoomTipLabel!: Label;
     private startButton!: Button;
     private rooms: Array<ListedRoom> = [];
     private refreshTimer = 0;
@@ -75,10 +77,18 @@ export default class BetaLobbyScene extends Scene {
             this.roomButtons.push(button);
         }
 
-        this.waitingRoomLabel = this.createLabel(new Vec2(half.x, half.y - 95), "Waiting Room", 38, Color.BLACK);
-        this.waitingRoomCodeLabel = this.createLabel(new Vec2(half.x, half.y - 20), "Room ------", 34, new Color(88, 72, 142));
-        this.waitingRoomPlayersLabel = this.createLabel(new Vec2(half.x, half.y + 45), "Players 1/4", 28, new Color(40, 40, 40));
-        this.waitingRoomTransportLabel = this.createLabel(new Vec2(half.x, half.y + 95), "Transport: direct", 24, new Color(60, 60, 60));
+        this.waitingRoomLabel = this.createLabel(new Vec2(half.x, half.y - 115), "Waiting Room", 38, Color.BLACK);
+        this.waitingRoomCodeLabel = this.createLabel(new Vec2(half.x, half.y - 40), "Room ------", 34, new Color(88, 72, 142));
+        this.waitingRoomPlayersLabel = this.createLabel(new Vec2(half.x, half.y + 25), "Players 1/4", 28, new Color(40, 40, 40));
+        this.waitingRoomTransportLabel = this.createLabel(new Vec2(half.x, half.y + 75), "Transport: direct", 24, new Color(60, 60, 60));
+        this.waitingRoomTipLabel = this.createWrappedLabel(
+            new Vec2(half.x, half.y + 125),
+            "Tip: Remember W is jump. A/D is movement, and Space is to use spells.",
+            22,
+            new Color(70, 70, 70),
+            620,
+            true
+        );
         this.startButton = this.createButtonControl(new Vec2(half.x, half.y + 175), "Start");
         this.startButton.onClick = () => this.startHostedGame();
 
@@ -382,6 +392,7 @@ export default class BetaLobbyScene extends Scene {
         this.waitingRoomCodeLabel.visible = false;
         this.waitingRoomPlayersLabel.visible = false;
         this.waitingRoomTransportLabel.visible = false;
+        this.waitingRoomTipLabel.visible = false;
         this.startButton.visible = false;
     }
 
@@ -394,6 +405,7 @@ export default class BetaLobbyScene extends Scene {
         this.waitingRoomCodeLabel.visible = true;
         this.waitingRoomPlayersLabel.visible = true;
         this.waitingRoomTransportLabel.visible = true;
+        this.waitingRoomTipLabel.visible = true;
         this.waitingRoomCodeLabel.text = "Room " + this.activeRoomCode;
         const displayedCount = Math.max(1, Math.min(BetaLobbyScene.MAX_PLAYERS, P2PManager.playerCount || (this.hosting ? 1 : 2)));
         this.waitingRoomPlayersLabel.text = "Players " + displayedCount + "/" + BetaLobbyScene.MAX_PLAYERS;
@@ -533,6 +545,16 @@ export default class BetaLobbyScene extends Scene {
         label.textColor = color;
         label.backgroundColor = Color.TRANSPARENT;
         label.borderColor = Color.TRANSPARENT;
+        return label;
+    }
+
+    private createWrappedLabel(position: Vec2, text: string, fontSize: number, color: Color, maxWidth: number, bold: boolean = false): Label {
+        const label = this.createLabel(position, text, fontSize, color);
+        if (bold) {
+            label.font = "bold PixelSimple";
+        }
+        label.size.set(maxWidth, label.size.y);
+        label.setHAlign(HAlign.CENTER);
         return label;
     }
 

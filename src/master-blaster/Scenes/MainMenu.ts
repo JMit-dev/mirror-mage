@@ -120,10 +120,10 @@ export default class MainMenu extends Scene {
     }
 
     protected createLevelControls(size: Vec2): void {
-        this.level1Button = this.createButton(new Vec2(size.x - 130, size.y + 130), "Level 1");
+        this.level1Button = this.createButton(new Vec2(size.x - 130, size.y + 130), "Grasslands");
         this.level1Button.onClick = () => this.handleLevelSelection("level1");
 
-        this.level2Button = this.createButton(new Vec2(size.x + 130, size.y + 130), "Level 2");
+        this.level2Button = this.createButton(new Vec2(size.x + 130, size.y + 130), "Underground");
         this.level2Button.onClick = () => this.handleLevelSelection("level2");
 
         this.backButton = this.createButton(new Vec2(size.x, size.y + 220), "Back");
@@ -147,7 +147,7 @@ export default class MainMenu extends Scene {
 
     protected showLevelMenu(): void {
         const localMode = this.pendingMode === RuntimeModeValue.LOCAL_COOP_TESTING;
-        this.titleLogo.visible = !localMode;
+        this.titleLogo.visible = false;
         this.subtitle.text = localMode ? "Choose a local level" : "Choose an online level";
         this.onlineButton.visible = false;
         this.betaLobbyButton.visible = false;
@@ -210,7 +210,7 @@ export default class MainMenu extends Scene {
 
     private playTitleMusic(): void {
         this.emitter.fireEvent(GameEventType.STOP_SOUND, { key: MainMenu.TITLE_MUSIC_KEY });
-        AudioManager.setVolume(AudioChannelType.MUSIC, 0.4);
+        AudioManager.setVolume(AudioChannelType.MUSIC, 0.025);
         this.emitter.fireEvent(GameEventType.PLAY_SOUND, {
             key: MainMenu.TITLE_MUSIC_KEY,
             loop: true,

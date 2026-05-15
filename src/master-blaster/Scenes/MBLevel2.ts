@@ -83,7 +83,7 @@ export default class Level2 extends MBLevel {
 
         // Music and sound
         this.levelMusicKey = Level2.LEVEL_MUSIC_KEY
-        this.levelMusicVolume = 0.2;
+        this.levelMusicVolume = 0.05;
         this.jumpAudioKey = Level2.JUMP_AUDIO_KEY;
         this.tileDestroyedAudioKey = Level2.TILE_DESTROYED_KEY;
         this.deathAudioKey = Level2.DEATH_AUDIO_KEY;

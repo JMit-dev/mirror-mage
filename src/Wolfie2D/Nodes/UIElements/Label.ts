@@ -47,6 +47,9 @@ export default class Label extends UIElement{
 	 * @returns A string containing the font details
 	 */
 	getFontString(): string {
+		if(this.font.startsWith("bold ")){
+			return "bold " + this.fontSize + "px " + this.font.substring(5);
+		}
 		return this.fontSize + "px " + this.font;
 	}
 
@@ -64,7 +67,7 @@ export default class Label extends UIElement{
 	 * @returns A number representing the rendered text width
 	 */
 	protected calculateTextWidth(ctx: CanvasRenderingContext2D): number {
-		ctx.font = this.fontSize + "px " + this.font;
+		ctx.font = this.getFontString();
 		return ctx.measureText(this.text).width;
 	}
 

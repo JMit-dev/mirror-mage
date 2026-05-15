@@ -104,7 +104,7 @@ export default class Level1 extends MBLevel {
 
         // Music and sound
         this.levelMusicKey = Level1.LEVEL_MUSIC_KEY
-        this.levelMusicVolume = 0.2;
+        this.levelMusicVolume = 0.025;
         this.jumpAudioKey = Level1.JUMP_AUDIO_KEY;
         this.tileDestroyedAudioKey = Level1.TILE_DESTROYED_KEY;
         this.deathAudioKey = Level1.DEATH_AUDIO_KEY;
