@@ -54,6 +54,7 @@ export default class PlayerController extends StateMachineAI {
     public readonly MAX_SPEED: number = 280;
     public readonly MIN_SPEED: number = 160;
     public static readonly SPELL_USES_PER_PICKUP: number = 3;
+    public static readonly POST_RESPAWN_INVULNERABILITY_TIME: number = 0.25;
 
     /** Health and max health for the player */
     protected _health: number;
@@ -72,6 +73,7 @@ export default class PlayerController extends StateMachineAI {
     protected _isLocalPlayer: boolean = true;
     protected _currentSpell: SpellType | null;
     protected _spellUsesRemaining: number;
+    private _invulnerabilityRemaining: number;
 
     // Remote input state — fed by MBLevel when P2P packets arrive
     private _remoteLeft: boolean = false;
@@ -97,6 +99,7 @@ export default class PlayerController extends StateMachineAI {
         this.isDead = false;
         this._currentSpell = null;
         this._spellUsesRemaining = 0;
+        this._invulnerabilityRemaining = 0;
 
         this.maxHealth = 1;
         this.health = 1;
@@ -172,8 +175,13 @@ export default class PlayerController extends StateMachineAI {
     public get isLocalPlayer(): boolean { return this._isLocalPlayer; }
     public get currentSpell(): SpellType | null { return this._currentSpell; }
     public get spellUsesRemaining(): number { return this._spellUsesRemaining; }
+    public get isInvulnerable(): boolean { return this._invulnerabilityRemaining > 0; }
 
     public update(deltaT: number): void {
+        if (this._invulnerabilityRemaining > 0) {
+            this._invulnerabilityRemaining = Math.max(0, this._invulnerabilityRemaining - deltaT);
+        }
+
         // Default aim: horizontal from facing direction.
         this.aimDirection = new Vec2(this.owner.invertX ? -1 : 1, 0);
         this.lastFiredSpell = null; // Reset each frame; set below when firing
@@ -269,6 +277,7 @@ export default class PlayerController extends StateMachineAI {
         this.velocity = Vec2.ZERO;
         this._currentSpell = null;
         this._spellUsesRemaining = 0;
+        this._invulnerabilityRemaining = PlayerController.POST_RESPAWN_INVULNERABILITY_TIME;
         this.owner.position.copy(position);
         this.owner.rotation = 0;
         this.owner.animation.stop();

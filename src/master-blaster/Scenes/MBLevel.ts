@@ -566,7 +566,9 @@ export default abstract class MBLevel extends Scene {
 
             const hitPlayer = this.getHitPlayer(projectile.sprite);
             if (hitPlayer !== null) {
-                this.damagePlayer(hitPlayer);
+                if (!this.damagePlayer(hitPlayer)) {
+                    continue;
+                }
                 if (projectile.spellType === SpellType.ICE && weaponSystem.recordHitById(projectile.sprite.id)) {
                     weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction));
                     continue;
@@ -1042,18 +1044,21 @@ export default abstract class MBLevel extends Scene {
         return null;
     }
 
-    protected damagePlayer(playerNum: 1 | 2): void {
+    protected damagePlayer(playerNum: 1 | 2): boolean {
         const target = playerNum === 2 ? this.player2 : this.player;
         if (target === undefined) {
-            return;
+            return false;
         }
 
         const controller = target.ai as PlayerController;
-        if (!controller.isDead) {
-            controller.health -= 1;
-            // Tell the remote peer that this player was hit (we are the authority since our projectile caused it)
-            this.sendNetEvent(EventId.PLAYER_HIT, playerNum);
+        if (controller.isDead || controller.isInvulnerable) {
+            return false;
         }
+
+        controller.health -= 1;
+        // Tell the remote peer that this player was hit (we are the authority since our projectile caused it)
+        this.sendNetEvent(EventId.PLAYER_HIT, playerNum);
+        return true;
     }
 
     protected getRespawnPosition(playerNum: 1 | 2): Vec2 {
