@@ -4,9 +4,13 @@ Mirror Mage is a local and online PvP battle game about mages who fight with spe
 The game is built in TypeScript with Wolfie2D, a game engine created for CSE 380 (2D Game Programming) at Stony Brook University.
 
 ## TODO
-1. Give attacks different gameplay effects such as damage, knockback, slow, spell splitting, or stun. Tune spell behavior so ice can split into three pieces and bounce twice on anything, fire bounces once and only on mirrors, and lightning bounces everywhere for at least five hits.
-2. Add new music and arena layouts for grass, ice castle, fire arena, and the title screen.
-3. Update todo spell info
+1. Highest priority: add TURN support using Open Relay by Metered and test with the free 20 GB plan so online play works on stricter networks like Stony Brook University. Default is p2p but if it doesnt connect use TURN or just make TURN default
+2. Fix the online join/start security and connection bug affecting some Stony Brook University players.
+3. Update the lobby so it is the only online option.
+4. Add a new lava level.
+5. Add new music for lava and lower all music to be less loud.
+6. Add a new logo.
+7. Change levels to be arena names: grass, cave and lava. 
 
 ## Introduction
 Mirror Mage focuses on fast one-on-one magical duels. Each player controls a mage with movement, jumping, spell casting, and mirror defense. Battles are meant to reward timing and prediction: a player can pressure their opponent with spells, but a well-timed mirror can reflect that pressure back.
