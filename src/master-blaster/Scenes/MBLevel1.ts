@@ -23,8 +23,14 @@ export default class Level1 extends MBLevel {
     protected static readonly GROUND_BACKGROUND_LAYER_KEY = "Level1GroundBackground";
     protected static readonly LEVEL_CENTER = new Vec2(600, 304);
 
-    public static readonly PLAYER_SPAWN = new Vec2(454, 320);
-    public static readonly PLAYER2_SPAWN = new Vec2(730, 320);
+    public static readonly PLAYER_SPAWN = new Vec2(480, 320);
+    public static readonly PLAYER2_SPAWN = new Vec2(704, 320);
+    public static readonly PLAYER3_SPAWN = new Vec2(240, 512);
+    public static readonly PLAYER4_SPAWN = new Vec2(912, 512);
+    public static readonly PLAYER_RESPAWN = Level1.PLAYER_SPAWN;
+    public static readonly PLAYER2_RESPAWN = Level1.PLAYER2_SPAWN;
+    public static readonly PLAYER3_RESPAWN = Level1.PLAYER3_SPAWN;
+    public static readonly PLAYER4_RESPAWN = Level1.PLAYER4_SPAWN;
     public static readonly PLAYER_SPRITE_KEY = "PLAYER1_SPRITE_KEY";
     public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/mage1.json";
     public static readonly PLAYER2_SPRITE_KEY = "PLAYER2_SPRITE_KEY";
@@ -88,12 +94,13 @@ export default class Level1 extends MBLevel {
         this.player4SpriteKey = Level1.PLAYER4_SPRITE_KEY;
         // Set spawn positions
         this.playerSpawn = Level1.PLAYER_SPAWN;
-        this.respawnPosition = new Vec2(592, 192);
+        this.respawnPosition = Level1.PLAYER_RESPAWN.clone();
         this.player2Spawn = Level1.PLAYER2_SPAWN;
-        this.player3Spawn = new Vec2(600, 192).mult(this.tilemapScale);
-        this.player4Spawn = new Vec2(600, 256).mult(this.tilemapScale);
-        this.player3RespawnPosition = this.player3Spawn.clone();
-        this.player4RespawnPosition = this.player4Spawn.clone();
+        this.player2RespawnPosition = Level1.PLAYER2_RESPAWN.clone();
+        this.player3Spawn = Level1.PLAYER3_SPAWN;
+        this.player4Spawn = Level1.PLAYER4_SPAWN;
+        this.player3RespawnPosition = Level1.PLAYER3_RESPAWN.clone();
+        this.player4RespawnPosition = Level1.PLAYER4_RESPAWN.clone();
 
         // Music and sound
         this.levelMusicKey = Level1.LEVEL_MUSIC_KEY
