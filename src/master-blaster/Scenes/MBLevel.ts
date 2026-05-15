@@ -92,7 +92,7 @@ export default abstract class MBLevel extends Scene {
     protected static readonly SPELL_COUNTER_SPACING = 16;
     protected static readonly MIRROR_HITS_TO_BREAK = 3;
     protected static readonly DIRECTIONAL_MIRROR_AIM_ENABLED = false;
-    protected static readonly STOCK_COUNT = 3;
+    protected static readonly STOCK_COUNT = 5;
     protected static readonly STOCK_ICON_SCALE = 0.125;
     protected static readonly STOCK_ICON_START_P1 = new Vec2(24, 24);
     protected static readonly STOCK_ICON_START_P2 = new Vec2(1104, 24);
