@@ -240,6 +240,39 @@ export default class PlayerWeapon {
         return this.projectiles;
     }
 
+    public findClosestActiveProjectileId(spellType: SpellType, position: Vec2, maxDistanceSq: number = 2500): number | null {
+        let best: ProjectileData | null = null;
+        let bestDistanceSq = maxDistanceSq;
+
+        for (const projectile of this.projectiles) {
+            if (!projectile.active || projectile.spellType !== spellType) {
+                continue;
+            }
+
+            const distanceSq = projectile.sprite.position.distanceSqTo(position);
+            if (distanceSq <= bestDistanceSq) {
+                best = projectile;
+                bestDistanceSq = distanceSq;
+            }
+        }
+
+        return best?.sprite.id ?? null;
+    }
+
+    public snapProjectileById(id: number, position: Vec2, direction: Vec2): boolean {
+        const projectile = this.projectiles.find(entry => entry.sprite.id === id);
+        if (projectile === undefined || !projectile.active) {
+            return false;
+        }
+
+        projectile.sprite.position.copy(position);
+        projectile.direction = direction.clone();
+        projectile.sprite.invertX = direction.x < 0;
+        projectile.sprite._velocity.zero();
+        projectile.sprite.collidedWithTilemap = false;
+        return true;
+    }
+
     public reflectById(id: number, reflectedOwnerPlayerNum: 1 | 2 | 3 | 4, seed: number = 0): boolean {
         const projectile = this.projectiles.find(entry => entry.sprite.id === id);
         if (projectile === undefined || !projectile.active) {

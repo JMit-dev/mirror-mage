@@ -39,6 +39,11 @@ type SpellPowerup = {
     spawnPosition: Vec2;
 };
 
+const PACKET_PROJECTILE_IMPACT = 0xf4;
+const IMPACT_MIRROR = 1;
+const IMPACT_PLAYER = 2;
+const IMPACT_TILE = 3;
+
 /**
  * A const object for the layer names
  */
@@ -436,6 +441,7 @@ export default abstract class MBLevel extends Scene {
                 : undefined;
             const hitMirrorPlayer = this.getMirrorHitPlayerMulti(projectile.sprite, initialMirrorPassThrough);
             if (hitMirrorPlayer !== null) {
+                this.sendProjectileImpactVisual(ownerPlayerNum, projectile, IMPACT_MIRROR, hitMirrorPlayer);
                 weaponSystem.splitIceShardById(projectile.sprite.id);
                 this.damageMirror(hitMirrorPlayer);
                 this.sendNetEvent(EventId.MIRROR_HIT, hitMirrorPlayer);
@@ -448,6 +454,7 @@ export default abstract class MBLevel extends Scene {
 
             const hitPlayer = this.getHitPlayerMulti(projectile.sprite, initialMirrorPassThrough);
             if (hitPlayer !== null) {
+                this.sendProjectileImpactVisual(ownerPlayerNum, projectile, IMPACT_PLAYER, hitPlayer);
                 if (!this.damagePlayer(hitPlayer)) {
                     continue;
                 }
@@ -460,6 +467,7 @@ export default abstract class MBLevel extends Scene {
             }
 
             if (projectile.sprite.collidedWithTilemap) {
+                this.sendProjectileImpactVisual(ownerPlayerNum, projectile, IMPACT_TILE);
                 this.handleProjectileTileHit(weaponSystem, projectile);
             }
         }
@@ -476,32 +484,7 @@ export default abstract class MBLevel extends Scene {
                 continue;
             }
 
-            const initialMirrorPassThrough = projectile.reflectedOwnerPlayerNum === null && projectile.bounceCount === 0
-                ? ownerPlayerNum
-                : undefined;
-            const hitMirrorPlayer = this.getMirrorHitPlayerMulti(projectile.sprite, initialMirrorPassThrough);
-            if (hitMirrorPlayer !== null) {
-                weaponSystem.splitIceShardById(projectile.sprite.id);
-                if (!weaponSystem.recordHitById(projectile.sprite.id)) {
-                    continue;
-                }
-                weaponSystem.reflectById(projectile.sprite.id, hitMirrorPlayer, this.getProjectileSyncSeed(projectile));
-                continue;
-            }
-
-            const hitPlayer = this.getHitPlayerMulti(projectile.sprite, initialMirrorPassThrough);
-            if (hitPlayer !== null) {
-                if (projectile.spellType === SpellType.ICE && weaponSystem.recordHitById(projectile.sprite.id)) {
-                    weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction, this.getProjectileSyncSeed(projectile)));
-                    continue;
-                }
-                weaponSystem.deactivateById(projectile.sprite.id);
-                continue;
-            }
-
-            if (projectile.sprite.collidedWithTilemap) {
-                this.handleProjectileTileHit(weaponSystem, projectile);
-            }
+            projectile.sprite.collidedWithTilemap = false;
         }
     }
 
@@ -838,6 +821,81 @@ export default abstract class MBLevel extends Scene {
         v.setUint16(1, spawnIdx, true);
         v.setUint8(3, encodeSpellType(spellType));
         P2PManager.send(buf);
+    }
+
+    private sendProjectileImpactVisual(ownerPlayerNum: 1 | 2 | 3 | 4, projectile: Readonly<ProjectileData>, impactType: number, affectedPlayerNum: number = 0): void {
+        if (!P2PManager.isConnected) return;
+        const buf = new ArrayBuffer(22);
+        const v = new DataView(buf);
+        v.setUint8(0, PACKET_PROJECTILE_IMPACT);
+        v.setUint8(1, ownerPlayerNum);
+        v.setUint8(2, encodeSpellType(projectile.spellType));
+        v.setUint8(3, impactType);
+        v.setUint8(4, affectedPlayerNum & 0xff);
+        v.setFloat32(5, projectile.sprite.position.x, true);
+        v.setFloat32(9, projectile.sprite.position.y, true);
+        v.setFloat32(13, projectile.direction.x, true);
+        v.setFloat32(17, projectile.direction.y, true);
+        v.setUint8(21, projectile.bounceCount & 0xff);
+        P2PManager.send(buf);
+    }
+
+    private _handleProjectileImpactVisual(v: DataView): void {
+        if (this.isOnlineHost()) {
+            return;
+        }
+
+        const ownerPlayerNum = v.getUint8(1) as 1 | 2 | 3 | 4;
+        const spellType = decodeSpellType(v.getUint8(2));
+        const impactType = v.getUint8(3);
+        const affectedPlayerNum = v.getUint8(4) as 1 | 2 | 3 | 4;
+        const bounceCount = v.getUint8(21);
+        if (spellType === null) {
+            return;
+        }
+
+        const position = new Vec2(v.getFloat32(5, true), v.getFloat32(9, true));
+        const direction = new Vec2(v.getFloat32(13, true), v.getFloat32(17, true));
+        const weaponSystem = this.getWeaponSystemForSlot(ownerPlayerNum);
+        if (weaponSystem === undefined) {
+            return;
+        }
+
+        const projectileId = weaponSystem.findClosestActiveProjectileId(spellType, position);
+        if (projectileId === null) {
+            return;
+        }
+
+        if (!weaponSystem.snapProjectileById(projectileId, position, direction)) {
+            return;
+        }
+
+        const syncSeed = this.getProjectileSyncSeedFromValues(position, direction, bounceCount);
+
+        if (impactType === IMPACT_MIRROR) {
+            weaponSystem.splitIceShardById(projectileId);
+            if (!weaponSystem.recordHitById(projectileId)) {
+                return;
+            }
+            weaponSystem.reflectById(projectileId, affectedPlayerNum, syncSeed);
+            return;
+        }
+
+        if (impactType === IMPACT_PLAYER) {
+            if (spellType === SpellType.ICE && weaponSystem.recordHitById(projectileId)) {
+                weaponSystem.setBounceDirection(projectileId, PlayerWeapon.getBounceDirection(direction, syncSeed));
+            } else {
+                weaponSystem.deactivateById(projectileId);
+            }
+            return;
+        }
+
+        if (impactType === IMPACT_TILE) {
+            const projectile = weaponSystem.getProjectiles().find(entry => entry.sprite.id === projectileId);
+            if (projectile !== undefined) {
+                this.handleProjectileTileHit(weaponSystem, projectile);
+            }
+        }
     }
 
     private _sendPowerupRemove(spawnIdx: number): void {
@@ -1515,10 +1573,12 @@ export default abstract class MBLevel extends Scene {
         const candidates: Array<{ playerNum: 1 | 2 | 3 | 4; mirror?: Sprite; active: boolean }> = [];
         for (const slot of this.multiPlayerSlots) {
             const mirror = this.multiPlayerMirrors[slot];
+            const player = this.getPlayerForSlot(slot);
+            const controller = player?.ai as PlayerController | undefined;
             candidates.push({
                 playerNum: slot,
                 mirror: excludedPlayerNum === slot ? undefined : mirror,
-                active: excludedPlayerNum !== slot && this.isMirrorActive(slot)
+                active: excludedPlayerNum !== slot && this.isMirrorActive(slot) && controller?.isDead !== true
             });
         }
         return getHitMirrorOwner(spell, candidates as any) as 1 | 2 | 3 | 4 | null;
@@ -1529,12 +1589,16 @@ export default abstract class MBLevel extends Scene {
             return this.getHitPlayerMulti(spell, excludedPlayerNum) as 1 | 2 | null;
         }
 
-        if (excludedPlayerNum !== 1 && this.player.boundary.overlapArea(spell.boundary) > 0) {
+        const player1Controller = this.player.ai as PlayerController;
+        if (excludedPlayerNum !== 1 && !player1Controller.isDead && this.player.boundary.overlapArea(spell.boundary) > 0) {
             return 1;
         }
 
-        if (excludedPlayerNum !== 2 && this.player2 !== undefined && this.player2.boundary.overlapArea(spell.boundary) > 0) {
-            return 2;
+        if (excludedPlayerNum !== 2 && this.player2 !== undefined) {
+            const player2Controller = this.player2.ai as PlayerController;
+            if (!player2Controller.isDead && this.player2.boundary.overlapArea(spell.boundary) > 0) {
+                return 2;
+            }
         }
 
         return null;
@@ -1546,7 +1610,8 @@ export default abstract class MBLevel extends Scene {
                 continue;
             }
             const player = this.getPlayerForSlot(slot);
-            if (player !== undefined && player.boundary.overlapArea(spell.boundary) > 0) {
+            const controller = player?.ai as PlayerController | undefined;
+            if (player !== undefined && controller?.isDead !== true && player.boundary.overlapArea(spell.boundary) > 0) {
                 return slot;
             }
         }
@@ -1812,11 +1877,15 @@ export default abstract class MBLevel extends Scene {
     }
 
     protected getProjectileSyncSeed(projectile: Readonly<ProjectileData>): number {
-        return Math.round(projectile.sprite.position.x * 10)
-            + Math.round(projectile.sprite.position.y * 10) * 31
-            + Math.round(projectile.direction.x * 1000) * 131
-            + Math.round(projectile.direction.y * 1000) * 521
-            + projectile.bounceCount * 1009;
+        return this.getProjectileSyncSeedFromValues(projectile.sprite.position, projectile.direction, projectile.bounceCount);
+    }
+
+    protected getProjectileSyncSeedFromValues(position: Vec2, direction: Vec2, bounceCount: number): number {
+        return Math.round(position.x * 10)
+            + Math.round(position.y * 10) * 31
+            + Math.round(direction.x * 1000) * 131
+            + Math.round(direction.y * 1000) * 521
+            + bounceCount * 1009;
     }
 
     protected getPlayerSpriteKeyForSlot(slot: 1 | 2 | 3 | 4): string {
@@ -1879,12 +1948,17 @@ export default abstract class MBLevel extends Scene {
             if (spellType !== null) this._handlePowerupSpawn(v.getUint16(1, true), spellType);
         } else if (type === 0xf7 && data.byteLength >= 3) {
             this._handlePowerupRemove(new DataView(data).getUint16(1, true));
+        } else if (type === PACKET_PROJECTILE_IMPACT && data.byteLength >= 22) {
+            this._handleProjectileImpactVisual(new DataView(data));
         } else if (type === 0xf5) {
             const winner = data.byteLength >= 2 ? new DataView(data).getUint8(1) as 1 | 2 | 3 | 4 : 1;
             this.sceneManager.changeToScene(WinScene, { winner, onlineMode: true });
         } else if (type === 0xf6 && data.byteLength >= 19) {
             const v = new DataView(data);
             const playerNum = v.getUint8(1) as 1 | 2 | 3 | 4;
+            if (playerNum === P2PManager.mySlot) {
+                return;
+            }
             const spellType = decodeSpellType(v.getUint8(2));
             if (spellType !== null) {
                 const pos = new Vec2(v.getFloat32(3, true), v.getFloat32(7, true));
@@ -1905,6 +1979,10 @@ export default abstract class MBLevel extends Scene {
     }
 
     private _handleNetEvent(evt: ReturnType<typeof decodeEvent>): void {
+        if (this.multiPlayerMode && this.isOnlineHost()) {
+            return;
+        }
+
         if (evt.eventId === EventId.PLAYER_HIT) {
             // Remote peer authoritatively says this player was hit
             this._applyPlayerHit(evt.playerNum);
