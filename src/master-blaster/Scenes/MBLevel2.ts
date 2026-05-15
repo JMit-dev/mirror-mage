@@ -117,6 +117,7 @@ export default class Level2 extends MBLevel {
         this.load.image(MBLevel.STOCK_ICON_P2_KEY, MBLevel.STOCK_ICON_P2_PATH);
         this.load.image(MBLevel.STOCK_ICON_P3_KEY, MBLevel.STOCK_ICON_P3_PATH);
         this.load.image(MBLevel.STOCK_ICON_P4_KEY, MBLevel.STOCK_ICON_P4_PATH);
+        this.load.image(MBLevel.DEAD_SKULL_KEY, MBLevel.DEAD_SKULL_PATH);
         // Level2-specific music
         this.load.audio(this.levelMusicKey, Level2.LEVEL_MUSIC_PATH);
         this.load.audio(this.jumpAudioKey, Level2.JUMP_AUDIO_PATH);
@@ -146,6 +147,7 @@ export default class Level2 extends MBLevel {
         this.load.keepImage(MBLevel.STOCK_ICON_P2_KEY);
         this.load.keepImage(MBLevel.STOCK_ICON_P3_KEY);
         this.load.keepImage(MBLevel.STOCK_ICON_P4_KEY);
+        this.load.keepImage(MBLevel.DEAD_SKULL_KEY);
         this.load.keepAudio(this.jumpAudioKey);
         this.load.keepAudio(this.tileDestroyedAudioKey);
         this.load.keepAudio(this.deathAudioKey);

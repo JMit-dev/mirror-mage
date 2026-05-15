@@ -74,6 +74,8 @@ export default abstract class MBLevel extends Scene {
     public static readonly STOCK_ICON_P3_PATH = "game_assets/ui/Life (3) transparent 256x256.png";
     public static readonly STOCK_ICON_P4_KEY = "STOCK_ICON_P4";
     public static readonly STOCK_ICON_P4_PATH = "game_assets/ui/Life (4) transparent 256x256.png";
+    public static readonly DEAD_SKULL_KEY = "DEAD_SKULL";
+    public static readonly DEAD_SKULL_PATH = "game_assets/spritesheets/Skull transparent 256.png";
     public static readonly SPELL_COUNTER_KEY = "SPELL_COUNTER";
     public static readonly SPELL_COUNTER_PATH = "game_assets/spritesheets/Spell Counter Transparent 256.png";
     public static readonly SPELL_COUNTER_FIRE_KEY = "SPELL_COUNTER_FIRE";
@@ -179,6 +181,7 @@ export default abstract class MBLevel extends Scene {
     protected multiPlayerPlayers: Partial<Record<1 | 2 | 3 | 4, AnimatedSprite>> = {};
     protected multiPlayerWeapons: Partial<Record<1 | 2 | 3 | 4, PlayerWeapon>> = {};
     protected multiPlayerMirrors: Partial<Record<1 | 2 | 3 | 4, Sprite>> = {};
+    protected multiPlayerDeathMarkers: Partial<Record<1 | 2 | 3 | 4, Sprite>> = {};
     protected multiPlayerSpellCounters: Partial<Record<1 | 2 | 3 | 4, Array<Sprite>>> = {};
     protected multiPlayerSpawnPositions: Partial<Record<1 | 2 | 3 | 4, Vec2>> = {};
     protected multiPlayerDead: Partial<Record<1 | 2 | 3 | 4, boolean>> = {};
@@ -350,6 +353,7 @@ export default abstract class MBLevel extends Scene {
             if (player !== undefined) {
                 (player.ai as PlayerController).tickTimers(deltaT);
             }
+            this.updateDeathMarkerForSlot(slot);
             this.updateMirrorForSlot(slot);
             this.updateSpellCounterForSlot(slot);
             this.getWeaponSystemForSlot(slot)?.update(deltaT);
@@ -384,7 +388,7 @@ export default abstract class MBLevel extends Scene {
             return;
         }
 
-        if (!this.isMirrorActive(slot)) {
+        if (this.multiPlayerDead[slot] === true || !this.isMirrorActive(slot)) {
             mirror.visible = false;
             return;
         }
@@ -1082,11 +1086,13 @@ export default abstract class MBLevel extends Scene {
                 if (player !== undefined) {
                     player.setAIActive(false, {});
                 }
+                this.updateDeathMarkerForSlot(playerNum);
             } else {
                 if (controller !== undefined) {
                     controller.respawn(respawnTarget);
                 }
                 this.multiPlayerDead[playerNum] = false;
+                this.updateDeathMarkerForSlot(playerNum);
                 this.restoreMirror(playerNum);
                 this.updateMirrorForSlot(playerNum);
             }
@@ -1722,7 +1728,7 @@ export default abstract class MBLevel extends Scene {
         if (this.multiPlayerMode) {
             const mirror = this.multiPlayerMirrors[playerNum];
             if (mirror !== undefined) {
-                mirror.visible = true;
+                mirror.visible = this.multiPlayerDead[playerNum] !== true;
             }
             if (playerNum === 1) this.mirrorHitsRemaining = MBLevel.MIRROR_HITS_TO_BREAK;
             else if (playerNum === 2) this.mirror2HitsRemaining = MBLevel.MIRROR_HITS_TO_BREAK;
@@ -1822,6 +1828,19 @@ export default abstract class MBLevel extends Scene {
         this.updateMirrorForSlot(slot);
     }
 
+    protected initializeDeathMarkerForSlot(slot: 1 | 2 | 3 | 4): void {
+        const player = this.getPlayerForSlot(slot);
+        if (player === undefined) {
+            return;
+        }
+
+        const skull = this.add.sprite(MBLevel.DEAD_SKULL_KEY, MBLayers.PRIMARY);
+        skull.scale.copy(player.scale);
+        skull.position.copy(player.position);
+        skull.visible = false;
+        this.multiPlayerDeathMarkers[slot] = skull;
+    }
+
     protected initializeSpellCounterForSlot(slot: 1 | 2 | 3 | 4): void {
         const counters = this.createSpellCounterRow();
         if (slot === 1) {
@@ -1868,9 +1887,11 @@ export default abstract class MBLevel extends Scene {
             const spriteKey = this.getPlayerSpriteKeyForSlot(slot);
             const spawn = this.getSpawnPositionForSlot(slot);
             this.initializePlayerForSlot(slot, spriteKey, spawn);
+            this.initializeDeathMarkerForSlot(slot);
             this.initializeMirrorForSlot(slot);
             this.initializeSpellCounterForSlot(slot);
             this.multiPlayerDead[slot] = false;
+            this.updateDeathMarkerForSlot(slot);
         }
 
         this.updateStockDisplay();
@@ -1908,6 +1929,20 @@ export default abstract class MBLevel extends Scene {
             case 4:
                 return this.player4Spawn.clone();
         }
+    }
+
+    protected updateDeathMarkerForSlot(slot: 1 | 2 | 3 | 4): void {
+        const player = this.getPlayerForSlot(slot);
+        const skull = this.multiPlayerDeathMarkers[slot];
+        if (player === undefined || skull === undefined) {
+            return;
+        }
+
+        const showSkull = this.multiPlayerDead[slot] === true;
+        skull.position.copy(player.position);
+        skull.scale.copy(player.scale);
+        skull.visible = showSkull;
+        player.visible = !showSkull;
     }
 
     protected syncMultiplayerState(_deltaT: number): void {
@@ -2003,6 +2038,7 @@ export default abstract class MBLevel extends Scene {
                     if (target !== undefined) {
                         target.setAIActive(false, {});
                     }
+                    this.updateDeathMarkerForSlot(evt.playerNum);
                     return;
                 }
 
@@ -2010,6 +2046,7 @@ export default abstract class MBLevel extends Scene {
                     const pc = target.ai as PlayerController;
                     pc.respawn(new Vec2(evt.respawnX ?? 0, evt.respawnY ?? 0));
                     this.multiPlayerDead[evt.playerNum] = false;
+                    this.updateDeathMarkerForSlot(evt.playerNum);
                     this.restoreMirror(evt.playerNum);
                     this.updateMirrorForSlot(evt.playerNum);
                 }
