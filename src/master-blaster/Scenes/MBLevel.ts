@@ -317,12 +317,14 @@ export default abstract class MBLevel extends Scene {
 
         this.updateMirrorPosition();
         this.updateSpellCounterPosition();
+        (this.player.ai as PlayerController).tickTimers(deltaT);
         this.playerWeaponSystem.update(deltaT);
         this.updateWeaponProjectiles(this.playerWeaponSystem, 1);
 
         if (this.player2 !== undefined) {
             this.updateMirror2Position();
             this.updateSpellCounter2Position();
+            (this.player2.ai as PlayerController).tickTimers(deltaT);
             this.player2WeaponSystem.update(deltaT);
             this.updateWeaponProjectiles(this.player2WeaponSystem, 2);
         }
@@ -339,6 +341,10 @@ export default abstract class MBLevel extends Scene {
 
     protected updateMultiPlayerScene(deltaT: number): void {
         for (const slot of this.multiPlayerSlots) {
+            const player = this.getPlayerForSlot(slot);
+            if (player !== undefined) {
+                (player.ai as PlayerController).tickTimers(deltaT);
+            }
             this.updateMirrorForSlot(slot);
             this.updateSpellCounterForSlot(slot);
             this.getWeaponSystemForSlot(slot)?.update(deltaT);

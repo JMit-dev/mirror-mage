@@ -181,11 +181,13 @@ export default class PlayerController extends StateMachineAI {
     public get spellUsesRemaining(): number { return this._spellUsesRemaining; }
     public get isInvulnerable(): boolean { return this._invulnerabilityRemaining > 0; }
 
-    public update(deltaT: number): void {
+    public tickTimers(deltaT: number): void {
         if (this._invulnerabilityRemaining > 0) {
             this._invulnerabilityRemaining = Math.max(0, this._invulnerabilityRemaining - deltaT);
         }
+    }
 
+    public update(deltaT: number): void {
         // Default aim: horizontal from facing direction.
         this.aimDirection = new Vec2(this.owner.invertX ? -1 : 1, 0);
         this.lastFiredSpell = null; // Reset each frame; set below when firing
