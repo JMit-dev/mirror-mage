@@ -7,7 +7,10 @@
 // PeerJS is loaded from CDN as a global — no npm import needed.
 declare const Peer: any;
 
+import { getRuntimeConfig, TurnMode, TurnModeValue } from "../config/RuntimeConfig";
+
 type MessageHandler = (data: ArrayBuffer) => void;
+type FailureHandler = (reason: string) => void;
 
 /** Peer ID prefix to avoid collisions with other PeerJS users */
 const PEER_PREFIX = "mm-";
@@ -24,12 +27,16 @@ export default class P2PManager {
     private static _peer: any | null = null;
     private static _hostConn: any | null = null;
     private static _connected: boolean = false;
+    private static _transportMode: TurnMode = TurnModeValue.P2P_THEN_TURN;
     private static _mySlot: 0 | 1 | 2 | 3 | 4 = 0;
     private static _roomCode: string = "";
     private static _playerCount: number = 0;
     private static _nextHostSlot: 2 | 3 | 4 = 2;
     private static _gameStarted: boolean = false;
     private static _selectedLevel: "level1" | "level2" | null = null;
+    private static _connectTimeoutHandle: any | null = null;
+    private static _hasOpenConnection: boolean = false;
+    private static _failureNotifiedForAttempt: boolean = false;
 
     private static _messageHandlers: MessageHandler[] = [];
     private static _openHandlers: Array<() => void> = [];
@@ -37,6 +44,7 @@ export default class P2PManager {
     private static _startHandlers: Array<() => void> = [];
     private static _levelSelectHandlers: Array<(level: "level1" | "level2") => void> = [];
     private static _slotAssignedHandlers: Array<(slot: 1 | 2 | 3 | 4) => void> = [];
+    private static _connectionFailureHandlers: FailureHandler[] = [];
 
     private static _hostConnections: Map<1 | 2 | 3 | 4, any> = new Map();
 
@@ -45,6 +53,7 @@ export default class P2PManager {
     // -------------------------------------------------------------------------
 
     public static get isConnected(): boolean { return this._connected; }
+    public static get transportMode(): TurnMode { return this._transportMode; }
     public static get mySlot(): 0 | 1 | 2 | 3 | 4 { return this._mySlot; }
     public static get roomCode(): string { return this._roomCode; }
     public static get playerCount(): number { return this._playerCount; }
@@ -65,7 +74,8 @@ export default class P2PManager {
     }
 
     /** P1 creates the room — registers a PeerJS peer with the room code as ID. */
-    public static host(): void {
+    public static host(transportMode: TurnMode = TurnModeValue.P2P_THEN_TURN): void {
+        this._prepareAttempt(transportMode);
         this._mySlot = 1;
         this._playerCount = 1;
         this._nextHostSlot = 2;
@@ -73,7 +83,10 @@ export default class P2PManager {
         this._gameStarted = false;
         this._selectedLevel = null;
 
-        this._peer = new Peer(PEER_PREFIX + this._roomCode);
+        this._peer = new Peer(PEER_PREFIX + this._roomCode, this._createPeerOptions(transportMode));
+        this._peer.on("open", () => {
+            console.log("[P2P] host peer ready in mode", transportMode);
+        });
         this._peer.on("connection", (conn: any) => {
             const slot = this._allocateHostSlot();
             if (slot === null) {
@@ -86,18 +99,23 @@ export default class P2PManager {
             this._sendRoomState();
             for (const h of this._peerConnectedHandlers) h();
         });
-        this._peer.on("error", (e: any) => console.error("[P2P host]", e));
+        this._peer.on("error", (e: any) => {
+            console.error("[P2P host]", e);
+            this._emitConnectionFailure(String(e?.message ?? e));
+        });
     }
 
     /** P2+ joins an existing room — connects to the host's PeerJS peer ID. */
-    public static join(): void {
+    public static join(transportMode: TurnMode = TurnModeValue.P2P_THEN_TURN): void {
+        this._prepareAttempt(transportMode);
         this._mySlot = 0;
         this._playerCount = 1;
         this._connected = false;
         this._gameStarted = false;
         this._selectedLevel = null;
 
-        this._peer = new Peer();
+        this._scheduleConnectTimeout();
+        this._peer = new Peer(undefined, this._createPeerOptions(transportMode));
         this._peer.on("open", () => {
             const conn = this._peer!.connect(PEER_PREFIX + this._roomCode, {
                 reliable: true,
@@ -106,7 +124,10 @@ export default class P2PManager {
             this._hostConn = conn;
             this._wireGuestConn(conn);
         });
-        this._peer.on("error", (e: any) => console.error("[P2P guest]", e));
+        this._peer.on("error", (e: any) => {
+            console.error("[P2P guest]", e);
+            this._emitConnectionFailure(String(e?.message ?? e));
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -196,11 +217,16 @@ export default class P2PManager {
         this._slotAssignedHandlers.push(handler);
     }
 
+    public static onConnectionFailed(handler: FailureHandler): void {
+        this._connectionFailureHandlers.push(handler);
+    }
+
     // -------------------------------------------------------------------------
     // Cleanup
     // -------------------------------------------------------------------------
 
-    public static disconnect(): void {
+    public static disconnect(clearHandlers: boolean = true): void {
+        this._clearConnectTimeout();
         for (const conn of this._hostConnections.values()) {
             try { conn?.close(); } catch { /* ignore */ }
         }
@@ -211,17 +237,23 @@ export default class P2PManager {
         this._peer = null;
         this._hostConn = null;
         this._connected = false;
+        this._transportMode = TurnModeValue.P2P_THEN_TURN;
         this._mySlot = 0;
         this._playerCount = 0;
         this._nextHostSlot = 2;
         this._gameStarted = false;
         this._selectedLevel = null;
-        this._messageHandlers = [];
-        this._openHandlers = [];
-        this._peerConnectedHandlers = [];
-        this._startHandlers = [];
-        this._levelSelectHandlers = [];
-        this._slotAssignedHandlers = [];
+        this._hasOpenConnection = false;
+        this._failureNotifiedForAttempt = false;
+        if (clearHandlers) {
+            this._messageHandlers = [];
+            this._openHandlers = [];
+            this._peerConnectedHandlers = [];
+            this._startHandlers = [];
+            this._levelSelectHandlers = [];
+            this._slotAssignedHandlers = [];
+            this._connectionFailureHandlers = [];
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -244,6 +276,7 @@ export default class P2PManager {
     private static _wireHostConn(conn: any, slot: 2 | 3 | 4): void {
         conn.on("open", () => {
             this._connected = true;
+            this._hasOpenConnection = true;
             this._sendAssignSlot(conn, slot);
             this._sendRoomState();
             for (const h of this._openHandlers) h();
@@ -275,6 +308,8 @@ export default class P2PManager {
     private static _wireGuestConn(conn: any): void {
         conn.on("open", () => {
             this._connected = true;
+            this._hasOpenConnection = true;
+            this._clearConnectTimeout();
             for (const h of this._openHandlers) h();
             this._openHandlers = [];
             console.log("[P2P] DataChannel open — all game data is P2P");
@@ -318,9 +353,15 @@ export default class P2PManager {
         conn.on("close", () => {
             this._connected = false;
             console.warn("[P2P] DataChannel closed");
+            if (!this._hasOpenConnection) {
+                this._emitConnectionFailure("Connection closed before open");
+            }
         });
 
-        conn.on("error", (e: any) => console.error("[P2P conn]", e));
+        conn.on("error", (e: any) => {
+            console.error("[P2P conn]", e);
+            this._emitConnectionFailure(String(e?.message ?? e));
+        });
     }
 
     private static _relayFromHostConn(senderSlot: 2 | 3 | 4, data: ArrayBuffer): void {
@@ -431,5 +472,75 @@ export default class P2PManager {
             code += chars[Math.floor(Math.random() * chars.length)];
         }
         return code;
+    }
+
+    private static _prepareAttempt(transportMode: TurnMode): void {
+        this._clearConnectTimeout();
+        this._transportMode = transportMode;
+        this._hasOpenConnection = false;
+        this._failureNotifiedForAttempt = false;
+    }
+
+    private static _scheduleConnectTimeout(): void {
+        this._clearConnectTimeout();
+        this._connectTimeoutHandle = window.setTimeout(() => {
+            if (!this._hasOpenConnection) {
+                this._emitConnectionFailure("Timed out waiting for WebRTC connection");
+            }
+        }, getRuntimeConfig().network.p2pConnectTimeoutMs);
+    }
+
+    private static _clearConnectTimeout(): void {
+        if (this._connectTimeoutHandle !== null) {
+            window.clearTimeout(this._connectTimeoutHandle);
+            this._connectTimeoutHandle = null;
+        }
+    }
+
+    private static _emitConnectionFailure(reason: string): void {
+        if (this._failureNotifiedForAttempt) {
+            return;
+        }
+
+        this._failureNotifiedForAttempt = true;
+        this._clearConnectTimeout();
+        const handlers = this._connectionFailureHandlers.slice();
+        for (const handler of handlers) {
+            handler(reason);
+        }
+    }
+
+    private static _createPeerOptions(transportMode: TurnMode): Record<string, unknown> {
+        const config = this._createRtcConfiguration(transportMode);
+        return config === null ? {} : { config };
+    }
+
+    private static _createRtcConfiguration(transportMode: TurnMode): RTCConfiguration | null {
+        const network = getRuntimeConfig().network;
+        const iceServers: RTCIceServer[] = [];
+
+        if (transportMode === TurnModeValue.P2P_THEN_TURN) {
+            for (const stunUrl of network.stunUrls) {
+                iceServers.push({ urls: stunUrl });
+            }
+        } else {
+            for (const turnUrl of network.turnUrls) {
+                iceServers.push({
+                    urls: turnUrl,
+                    username: network.turnUsername,
+                    credential: network.turnCredential
+                });
+            }
+        }
+
+        if (iceServers.length === 0) {
+            return null;
+        }
+
+        const rtcConfig: RTCConfiguration = { iceServers };
+        if (transportMode === TurnModeValue.TURN_ONLY) {
+            rtcConfig.iceTransportPolicy = "relay";
+        }
+        return rtcConfig;
     }
 }

@@ -1,9 +1,11 @@
 import Game from "./Wolfie2D/Loop/Game";
 import { MBControls } from "./master-blaster/MBControls";
+import { loadRuntimeConfig } from "./master-blaster/config/RuntimeConfig";
 import MainMenu from "./master-blaster/Scenes/MainMenu";
 
 // The main function is your entrypoint into Wolfie2D. Specify your first scene and any options here.
-(function main(){
+(async function main(){
+    await loadRuntimeConfig();
 
     // Set up options for our game
     let options = {

@@ -1,0 +1,12 @@
+{
+  "network": {
+    "turnMode": 0,
+    "p2pConnectTimeoutMs": 7000,
+    "roomMetaPollMs": 1000,
+    "relayRetryMs": 1500,
+    "stunUrls": [],
+    "turnUrls": [],
+    "turnUsername": "",
+    "turnCredential": ""
+  }
+}

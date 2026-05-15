@@ -13,13 +13,11 @@ import Level2 from "./MBLevel2";
 import HowToScene from "./HowToScene";
 import { RuntimeModeValue, setRuntimeMode } from "../config/RuntimeMode";
 import P2PManager from "../Network/P2PManager";
-import LobbyScene from "./LobbyScene";
 import BetaLobbyScene from "./BetaLobbyScene";
 
 export const MenuLayers = {
     MAIN: "MAIN"
 } as const;
-
 
 export default class MainMenu extends Scene {
     private static readonly TITLE_LOGO_KEY = "TITLE_LOGO";
@@ -69,23 +67,19 @@ export default class MainMenu extends Scene {
         this.createModeControls(size);
         this.createLevelControls(size);
 
-        // P2 landing on this page with a room code and no session → go straight to lobby
         if (P2PManager.mySlot === 0 && /room=[A-Z0-9]{6}/.test(window.location.hash)) {
-            this.sceneManager.changeToScene(LobbyScene);
+            this.sceneManager.changeToScene(BetaLobbyScene);
             return;
         }
 
-        // If already in an online session (came from LobbyScene → SPACE)
         if (P2PManager.mySlot !== 0) {
             if (P2PManager.mySlot > 1) {
-                // Guests: skip the mode step, wait for P1's level choice
                 this.showWaitingForHost();
                 P2PManager.onLevelSelected((level) => {
                     setRuntimeMode(RuntimeModeValue.DEFAULT);
                     this.sceneManager.changeToScene(level === "level1" ? Level1 : Level2 as any);
                 });
             } else {
-                // P1: skip mode selection, go straight to level picker
                 this.pendingMode = RuntimeModeValue.DEFAULT;
                 this.showLevelMenu();
             }
@@ -99,14 +93,14 @@ export default class MainMenu extends Scene {
     }
 
     public updateScene(): void {
-        // nothing — all transitions are event-driven now
+        // Transitions are event-driven.
     }
 
     protected createModeControls(size: Vec2): void {
         this.onlineButton = this.createButton(new Vec2(size.x - 130, size.y + 100), "Online");
-        this.localButton  = this.createButton(new Vec2(size.x + 130, size.y + 100), "Local");
+        this.localButton = this.createButton(new Vec2(size.x + 130, size.y + 100), "Local");
         this.betaLobbyButton = this.createButton(new Vec2(size.x, size.y + 185), "Lobby(beta)");
-        this.howToButton  = this.createButton(new Vec2(size.x, size.y + 265), "How to");
+        this.howToButton = this.createButton(new Vec2(size.x, size.y + 265), "How to");
 
         this.localButton.onClick = () => {
             this.pendingMode = RuntimeModeValue.LOCAL_COOP_TESTING;
@@ -138,13 +132,13 @@ export default class MainMenu extends Scene {
     protected showModeMenu(): void {
         this.pendingMode = RuntimeModeValue.DEFAULT;
         this.subtitle.text = "Choose a mode";
-        this.onlineButton.visible  = true;
+        this.onlineButton.visible = true;
         this.betaLobbyButton.visible = true;
-        this.localButton.visible   = true;
-        this.howToButton.visible   = true;
-        this.level1Button.visible  = false;
-        this.level2Button.visible  = false;
-        this.backButton.visible    = false;
+        this.localButton.visible = true;
+        this.howToButton.visible = true;
+        this.level1Button.visible = false;
+        this.level2Button.visible = false;
+        this.backButton.visible = false;
 
         this.playTitleMusic();
     }
@@ -152,26 +146,26 @@ export default class MainMenu extends Scene {
     protected showLevelMenu(): void {
         const localMode = this.pendingMode === RuntimeModeValue.LOCAL_COOP_TESTING;
         this.subtitle.text = localMode ? "Choose a local level" : "Choose an online level";
-        this.onlineButton.visible  = false;
+        this.onlineButton.visible = false;
         this.betaLobbyButton.visible = false;
-        this.localButton.visible   = false;
-        this.howToButton.visible   = false;
-        this.level1Button.visible  = true;
-        this.level2Button.visible  = true;
-        this.backButton.visible    = true;
+        this.localButton.visible = false;
+        this.howToButton.visible = false;
+        this.level1Button.visible = true;
+        this.level2Button.visible = true;
+        this.backButton.visible = true;
 
         this.stopTitleMusic();
     }
 
     protected showWaitingForHost(): void {
         this.subtitle.text = "Waiting for host to choose level...";
-        this.onlineButton.visible  = false;
+        this.onlineButton.visible = false;
         this.betaLobbyButton.visible = false;
-        this.localButton.visible   = false;
-        this.howToButton.visible   = false;
-        this.level1Button.visible  = false;
-        this.level2Button.visible  = false;
-        this.backButton.visible    = false;
+        this.localButton.visible = false;
+        this.howToButton.visible = false;
+        this.level1Button.visible = false;
+        this.level2Button.visible = false;
+        this.backButton.visible = false;
 
         this.stopTitleMusic();
     }
@@ -186,13 +180,11 @@ export default class MainMenu extends Scene {
             return;
         }
 
-        // Online: no active session yet — go to lobby first
         if (P2PManager.mySlot === 0) {
-            this.sceneManager.changeToScene(LobbyScene);
+            this.sceneManager.changeToScene(BetaLobbyScene);
             return;
         }
 
-        // P1 (host) broadcasts choice to guests and transitions; guest buttons are hidden
         if (P2PManager.mySlot === 1) {
             P2PManager.selectLevel(level);
             this.sceneManager.changeToScene(level === "level1" ? Level1 : Level2 as any);
@@ -202,13 +194,13 @@ export default class MainMenu extends Scene {
     protected createButton(position: Vec2, text: string): Button {
         const button = <Button>this.add.uiElement(UIElementType.BUTTON, MenuLayers.MAIN, { position, text });
         button.backgroundColor = new Color(88, 72, 142);
-        button.borderColor     = new Color(38, 32, 70);
-        button.borderRadius    = 0;
-        button.borderWidth     = 2;
-        button.textColor       = Color.WHITE;
+        button.borderColor = new Color(38, 32, 70);
+        button.borderRadius = 0;
+        button.borderWidth = 2;
+        button.textColor = Color.WHITE;
         button.setPadding(new Vec2(60, 14));
-        button.font            = "PixelSimple";
-        button.fontSize        = 32;
+        button.font = "PixelSimple";
+        button.fontSize = 32;
         return button;
     }
 
