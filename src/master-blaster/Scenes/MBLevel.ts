@@ -454,10 +454,10 @@ export default abstract class MBLevel extends Scene {
 
             const hitPlayer = this.getHitPlayerMulti(projectile.sprite, initialMirrorPassThrough);
             if (hitPlayer !== null) {
-                this.sendProjectileImpactVisual(ownerPlayerNum, projectile, IMPACT_PLAYER, hitPlayer);
                 if (!this.damagePlayer(hitPlayer)) {
                     continue;
                 }
+                this.sendProjectileImpactVisual(ownerPlayerNum, projectile, IMPACT_PLAYER, hitPlayer);
                 if (projectile.spellType === SpellType.ICE && weaponSystem.recordHitById(projectile.sprite.id)) {
                     weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction, this.getProjectileSyncSeed(projectile)));
                     continue;
