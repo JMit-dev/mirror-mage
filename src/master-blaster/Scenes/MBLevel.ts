@@ -65,6 +65,10 @@ export default abstract class MBLevel extends Scene {
     public static readonly STOCK_ICON_P1_PATH = "game_assets/ui/Life (1) transparent 256x256.png";
     public static readonly STOCK_ICON_P2_KEY = "STOCK_ICON_P2";
     public static readonly STOCK_ICON_P2_PATH = "game_assets/ui/Life (2) transparent 256x256.png";
+    public static readonly STOCK_ICON_P3_KEY = "STOCK_ICON_P3";
+    public static readonly STOCK_ICON_P3_PATH = "game_assets/ui/Life (3) transparent 256x256.png";
+    public static readonly STOCK_ICON_P4_KEY = "STOCK_ICON_P4";
+    public static readonly STOCK_ICON_P4_PATH = "game_assets/ui/Life (4) transparent 256x256.png";
     public static readonly SPELL_COUNTER_KEY = "SPELL_COUNTER";
     public static readonly SPELL_COUNTER_PATH = "game_assets/spritesheets/Spell Counter Transparent 256.png";
     public static readonly SPELL_COUNTER_FIRE_KEY = "SPELL_COUNTER_FIRE";
@@ -85,6 +89,8 @@ export default abstract class MBLevel extends Scene {
     protected static readonly STOCK_ICON_SCALE = 0.125;
     protected static readonly STOCK_ICON_START_P1 = new Vec2(24, 24);
     protected static readonly STOCK_ICON_START_P2 = new Vec2(1104, 24);
+    protected static readonly STOCK_ICON_START_P3 = new Vec2(384, 24);
+    protected static readonly STOCK_ICON_START_P4 = new Vec2(780, 24);
     protected static readonly STOCK_ICON_SPACING = 36;
     protected static readonly POWERUP_MAX_ACTIVE = 3;
     protected static readonly POWERUP_RESPAWN_INTERVAL = 3;
@@ -142,6 +148,8 @@ export default abstract class MBLevel extends Scene {
     protected stocksRemaining: number = 0;
     protected stockIcons2!: Array<Sprite>;
     protected stocksRemaining2: number = 0;
+    protected stockIcons3!: Array<Sprite>;
+    protected stockIcons4!: Array<Sprite>;
     protected respawnPosition!: Vec2;
     protected player2RespawnPosition!: Vec2;
     protected player3RespawnPosition!: Vec2;
@@ -241,8 +249,8 @@ export default abstract class MBLevel extends Scene {
         this.initializeWeaponSystem();
         this.initializeWeaponSystem2();
 
-        this.initializeUI();
         this.multiPlayerMode = this.isOnlineMultiPlayer();
+        this.initializeUI();
 
         // Initialize players and mirrors
         if (this.multiPlayerMode) {
@@ -921,6 +929,7 @@ export default abstract class MBLevel extends Scene {
     protected handlePlayerDeath(playerNum: 1 | 2 | 3 | 4 = 1): void {
         if (this.multiPlayerMode) {
             this.multiPlayerDead[playerNum] = true;
+            this.updateStockDisplay();
             const player = this.getPlayerForSlot(playerNum);
             if (player !== undefined) {
                 player.setAIActive(false, {});
@@ -1209,6 +1218,8 @@ export default abstract class MBLevel extends Scene {
 
         // P2 stocks — top-right (icons go right-to-left so the rightmost is lost first)
         this.stockIcons2 = [];
+        this.stockIcons3 = [];
+        this.stockIcons4 = [];
         if (this.devTestingMode) {
             return;
         }
@@ -1223,6 +1234,28 @@ export default abstract class MBLevel extends Scene {
             this.stockIcons2.push(icon);
         }
 
+        if (this.multiPlayerMode) {
+            for (let i = 0; i < MBLevel.STOCK_COUNT; i++) {
+                const icon = this.add.sprite(MBLevel.STOCK_ICON_P3_KEY, MBLayers.UI);
+                icon.scale.set(MBLevel.STOCK_ICON_SCALE, MBLevel.STOCK_ICON_SCALE);
+                icon.position.copy(new Vec2(
+                    MBLevel.STOCK_ICON_START_P3.x + i * MBLevel.STOCK_ICON_SPACING,
+                    MBLevel.STOCK_ICON_START_P3.y
+                ));
+                this.stockIcons3.push(icon);
+            }
+
+            for (let i = 0; i < MBLevel.STOCK_COUNT; i++) {
+                const icon = this.add.sprite(MBLevel.STOCK_ICON_P4_KEY, MBLayers.UI);
+                icon.scale.set(MBLevel.STOCK_ICON_SCALE, MBLevel.STOCK_ICON_SCALE);
+                icon.position.copy(new Vec2(
+                    MBLevel.STOCK_ICON_START_P4.x - i * MBLevel.STOCK_ICON_SPACING,
+                    MBLevel.STOCK_ICON_START_P4.y
+                ));
+                this.stockIcons4.push(icon);
+            }
+        }
+
         this.updateStockDisplay();
     }
 
@@ -1232,6 +1265,19 @@ export default abstract class MBLevel extends Scene {
         }
         for (let i = 0; i < this.stockIcons2.length; i++) {
             this.stockIcons2[i].visible = i < this.stocksRemaining2;
+        }
+
+        if (this.multiPlayerMode) {
+            const player3Present = this.multiPlayerSlots.includes(3);
+            const player4Present = this.multiPlayerSlots.includes(4);
+            const player3Alive = player3Present && this.multiPlayerDead[3] !== true;
+            const player4Alive = player4Present && this.multiPlayerDead[4] !== true;
+            for (const icon of this.stockIcons3) {
+                icon.visible = player3Alive;
+            }
+            for (const icon of this.stockIcons4) {
+                icon.visible = player4Alive;
+            }
         }
     }
 
@@ -1657,6 +1703,8 @@ export default abstract class MBLevel extends Scene {
             this.initializeSpellCounterForSlot(slot);
             this.multiPlayerDead[slot] = false;
         }
+
+        this.updateStockDisplay();
     }
 
     protected getPlayerSpriteKeyForSlot(slot: 1 | 2 | 3 | 4): string {

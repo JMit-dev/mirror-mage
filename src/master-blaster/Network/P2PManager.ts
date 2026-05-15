@@ -28,6 +28,8 @@ export default class P2PManager {
     private static _roomCode: string = "";
     private static _playerCount: number = 0;
     private static _nextHostSlot: 2 | 3 | 4 = 2;
+    private static _gameStarted: boolean = false;
+    private static _selectedLevel: "level1" | "level2" | null = null;
 
     private static _messageHandlers: MessageHandler[] = [];
     private static _openHandlers: Array<() => void> = [];
@@ -68,6 +70,8 @@ export default class P2PManager {
         this._playerCount = 1;
         this._nextHostSlot = 2;
         this._connected = true;
+        this._gameStarted = false;
+        this._selectedLevel = null;
 
         this._peer = new Peer(PEER_PREFIX + this._roomCode);
         this._peer.on("connection", (conn: any) => {
@@ -90,6 +94,8 @@ export default class P2PManager {
         this._mySlot = 0;
         this._playerCount = 1;
         this._connected = false;
+        this._gameStarted = false;
+        this._selectedLevel = null;
 
         this._peer = new Peer();
         this._peer.on("open", () => {
@@ -131,7 +137,6 @@ export default class P2PManager {
         const buf = new ArrayBuffer(1);
         new DataView(buf).setUint8(0, PACKET_START);
         this.send(buf);
-        this._fireStart();
     }
 
     // -------------------------------------------------------------------------
@@ -157,6 +162,10 @@ export default class P2PManager {
 
     /** Fires on BOTH clients when P1 calls requestStart(). */
     public static onStart(handler: () => void): void {
+        if (this._gameStarted) {
+            handler();
+            return;
+        }
         this._startHandlers.push(handler);
     }
 
@@ -167,11 +176,14 @@ export default class P2PManager {
         v.setUint8(0, PACKET_LEVEL);
         v.setUint8(1, level === "level1" ? 1 : 2);
         this.send(buf);
-        this._dispatchLocal(buf);
     }
 
     /** Fires on guests when P1 calls selectLevel(). */
     public static onLevelSelected(handler: (level: "level1" | "level2") => void): void {
+        if (this._selectedLevel !== null) {
+            handler(this._selectedLevel);
+            return;
+        }
         this._levelSelectHandlers.push(handler);
     }
 
@@ -202,6 +214,8 @@ export default class P2PManager {
         this._mySlot = 0;
         this._playerCount = 0;
         this._nextHostSlot = 2;
+        this._gameStarted = false;
+        this._selectedLevel = null;
         this._messageHandlers = [];
         this._openHandlers = [];
         this._peerConnectedHandlers = [];
@@ -294,9 +308,7 @@ export default class P2PManager {
 
             if (buf.byteLength === 2 && type === PACKET_LEVEL) {
                 const level: "level1" | "level2" = v.getUint8(1) === 1 ? "level1" : "level2";
-                const handlers = this._levelSelectHandlers.slice();
-                this._levelSelectHandlers = [];
-                for (const h of handlers) h(level);
+                this._fireLevelSelected(level);
                 return;
             }
 
@@ -343,9 +355,7 @@ export default class P2PManager {
 
         if (data.byteLength === 2 && type === PACKET_LEVEL) {
             const level: "level1" | "level2" = v.getUint8(1) === 1 ? "level1" : "level2";
-            const handlers = this._levelSelectHandlers.slice();
-            this._levelSelectHandlers = [];
-            for (const h of handlers) h(level);
+            this._fireLevelSelected(level);
             return;
         }
 
@@ -380,9 +390,17 @@ export default class P2PManager {
     }
 
     private static _fireStart(): void {
+        this._gameStarted = true;
         const handlers = this._startHandlers.slice();
         this._startHandlers = [];
         for (const h of handlers) h();
+    }
+
+    private static _fireLevelSelected(level: "level1" | "level2"): void {
+        this._selectedLevel = level;
+        const handlers = this._levelSelectHandlers.slice();
+        this._levelSelectHandlers = [];
+        for (const h of handlers) h(level);
     }
 
     private static _fireSlotAssigned(): void {
