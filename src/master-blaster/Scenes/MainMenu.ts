@@ -161,7 +161,7 @@ export default class MainMenu extends Scene {
     }
 
     protected showWaitingForHost(): void {
-        this.titleLogo.visible = true;
+        this.titleLogo.visible = false;
         this.subtitle.text = "Waiting for host to choose level...";
         this.onlineButton.visible = false;
         this.betaLobbyButton.visible = false;
