@@ -11,7 +11,7 @@ export type ProjectileData = {
     lifetimeRemaining: number;
     active: boolean;
     spellType: SpellType;
-    reflectedOwnerPlayerNum: 1 | 2 | null;
+    reflectedOwnerPlayerNum: 1 | 2 | 3 | 4 | null;
     animationElapsed: number;
     animationFrameIndex: number;
     bounceCount: number;
@@ -233,7 +233,7 @@ export default class PlayerWeapon {
         return this.projectiles;
     }
 
-    public reflectById(id: number, reflectedOwnerPlayerNum: 1 | 2): boolean {
+    public reflectById(id: number, reflectedOwnerPlayerNum: 1 | 2 | 3 | 4): boolean {
         const projectile = this.projectiles.find(entry => entry.sprite.id === id);
         if (projectile === undefined || !projectile.active) {
             return false;

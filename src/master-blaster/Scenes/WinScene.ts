@@ -24,9 +24,13 @@ export default class WinScene extends Scene {
     private static readonly WIZARD_1_PATH = "game_assets/spritesheets/wizard-win-1-transparent-256.png";
     private static readonly WIZARD_2_KEY = "WIN_WIZARD_2";
     private static readonly WIZARD_2_PATH = "game_assets/spritesheets/wizard-win-2-transparent-256.png";
+    private static readonly WIZARD_3_KEY = "WIN_WIZARD_3";
+    private static readonly WIZARD_3_PATH = "game_assets/spritesheets/mage 3 win transparent 256.png";
+    private static readonly WIZARD_4_KEY = "WIN_WIZARD_4";
+    private static readonly WIZARD_4_PATH = "game_assets/spritesheets/mage 4 win transparent 256.png";
     private static readonly CONTINUE_LOCK_FRAMES = 12;
     private static readonly ONLINE_RETURN_FRAMES = 240;
-    private winner: 1 | 2 = 1;
+    private winner: 1 | 2 | 3 | 4 = 1;
     private onlineMode = false;
     private continueLockFrames = WinScene.CONTINUE_LOCK_FRAMES;
     private onlineReturnFrames = WinScene.ONLINE_RETURN_FRAMES;
@@ -36,7 +40,7 @@ export default class WinScene extends Scene {
     }
 
     public initScene(init: Record<string, any>): void {
-        this.winner = init?.winner === 2 ? 2 : 1;
+        this.winner = init?.winner === 2 ? 2 : init?.winner === 3 ? 3 : init?.winner === 4 ? 4 : 1;
         this.onlineMode = init?.onlineMode === true;
         this.continueLockFrames = WinScene.CONTINUE_LOCK_FRAMES;
         this.onlineReturnFrames = WinScene.ONLINE_RETURN_FRAMES;
@@ -46,6 +50,8 @@ export default class WinScene extends Scene {
         this.load.image(WinScene.TROPHY_KEY, WinScene.TROPHY_PATH);
         this.load.image(WinScene.WIZARD_1_KEY, WinScene.WIZARD_1_PATH);
         this.load.image(WinScene.WIZARD_2_KEY, WinScene.WIZARD_2_PATH);
+        this.load.image(WinScene.WIZARD_3_KEY, WinScene.WIZARD_3_PATH);
+        this.load.image(WinScene.WIZARD_4_KEY, WinScene.WIZARD_4_PATH);
     }
 
     public startScene(): void {
@@ -77,7 +83,14 @@ export default class WinScene extends Scene {
         trophy.position.copy(new Vec2(size.x + 125, size.y - 10));
         trophy.scale.set(1.5, 1.5);
 
-        const wizard = <Sprite>this.add.sprite(this.winner === 2 ? WinScene.WIZARD_2_KEY : WinScene.WIZARD_1_KEY, WinLayers.UI);
+        const wizardKey = this.winner === 2
+            ? WinScene.WIZARD_2_KEY
+            : this.winner === 3
+                ? WinScene.WIZARD_3_KEY
+                : this.winner === 4
+                    ? WinScene.WIZARD_4_KEY
+                    : WinScene.WIZARD_1_KEY;
+        const wizard = <Sprite>this.add.sprite(wizardKey, WinLayers.UI);
         wizard.position.copy(new Vec2(size.x - 135, size.y + 18));
         wizard.scale.set(1.5, 1.5);
 

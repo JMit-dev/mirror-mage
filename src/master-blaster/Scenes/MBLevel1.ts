@@ -29,6 +29,10 @@ export default class Level1 extends MBLevel {
     public static readonly PLAYER_SPRITE_PATH = "game_assets/spritesheets/mage1.json";
     public static readonly PLAYER2_SPRITE_KEY = "PLAYER2_SPRITE_KEY";
     public static readonly PLAYER2_SPRITE_PATH = "game_assets/spritesheets/mage2.json";
+    public static readonly PLAYER3_SPRITE_KEY = "PLAYER3_SPRITE_KEY";
+    public static readonly PLAYER3_SPRITE_PATH = "game_assets/spritesheets/mage3-height-256-transparent.json";
+    public static readonly PLAYER4_SPRITE_KEY = "PLAYER4_SPRITE_KEY";
+    public static readonly PLAYER4_SPRITE_PATH = "game_assets/spritesheets/Mage4-height-256-transparent.json";
     public static readonly ENEMY_SPRITE_KEY = "LEVEL1_ENEMY_SPRITE";
     public static readonly ENEMY_SPRITE_PATH = "game_assets/spritesheets/temp player 2.png";
     public static readonly ENEMY_SPELL_SPRITE_KEY = "LEVEL1_ENEMY_SPELL";
@@ -80,10 +84,16 @@ export default class Level1 extends MBLevel {
         // Set the key for the player's sprite
         this.playerSpriteKey = Level1.PLAYER_SPRITE_KEY;
         this.player2SpriteKey = Level1.PLAYER2_SPRITE_KEY;
+        this.player3SpriteKey = Level1.PLAYER3_SPRITE_KEY;
+        this.player4SpriteKey = Level1.PLAYER4_SPRITE_KEY;
         // Set spawn positions
         this.playerSpawn = Level1.PLAYER_SPAWN;
         this.respawnPosition = new Vec2(592, 192);
         this.player2Spawn = Level1.PLAYER2_SPAWN;
+        this.player3Spawn = new Vec2(600, 192).mult(this.tilemapScale);
+        this.player4Spawn = new Vec2(600, 256).mult(this.tilemapScale);
+        this.player3RespawnPosition = this.player3Spawn.clone();
+        this.player4RespawnPosition = this.player4Spawn.clone();
 
         // Music and sound
         this.levelMusicKey = Level1.LEVEL_MUSIC_KEY
@@ -106,6 +116,8 @@ export default class Level1 extends MBLevel {
         // Load in the player's sprite
         this.load.spritesheet(this.playerSpriteKey, Level1.PLAYER_SPRITE_PATH);
         this.load.spritesheet(this.player2SpriteKey, Level1.PLAYER2_SPRITE_PATH);
+        this.load.spritesheet(this.player3SpriteKey, Level1.PLAYER3_SPRITE_PATH);
+        this.load.spritesheet(this.player4SpriteKey, Level1.PLAYER4_SPRITE_PATH);
         this.load.image(PlayerWeapon.PROJECTILE_SPRITE_KEY, PlayerWeapon.PROJECTILE_SPRITE_PATH);
         this.load.image(SpellSpriteKey.FIRE_PROJECTILE, SpellSpritePath.FIRE_PROJECTILE);
         this.load.image(SpellSpriteKey.FIRE_PICKUP, SpellSpritePath.FIRE_PICKUP);

@@ -1,11 +1,11 @@
 import Vec2 from "../../Wolfie2D/DataTypes/Vec2";
 import Input from "../../Wolfie2D/Input/Input";
+import Button from "../../Wolfie2D/Nodes/UIElements/Button";
 import Label from "../../Wolfie2D/Nodes/UIElements/Label";
 import { UIElementType } from "../../Wolfie2D/Nodes/UIElements/UIElementTypes";
 import Scene from "../../Wolfie2D/Scene/Scene";
 import Color from "../../Wolfie2D/Utils/Color";
 import P2PManager from "../Network/P2PManager";
-import { MBControls } from "../MBControls";
 import MainMenu from "./MainMenu";
 
 const LAYER = "LOBBY";
@@ -16,6 +16,9 @@ export default class LobbyScene extends Scene {
     private playerCountLabel!: Label;
     private slot1Label!: Label;
     private slot2Label!: Label;
+    private slot3Label!: Label;
+    private slot4Label!: Label;
+    private startButton!: Button;
     private statusLabel!: Label;
 
     public startScene(): void {
@@ -51,30 +54,20 @@ export default class LobbyScene extends Scene {
 
         this.roomCodeLabel.text    = code || "------";
         this.urlLabel.text         = window.location.href;
-        this.playerCountLabel.text = count + " / 2  players";
+        this.playerCountLabel.text = "Joined: " + count + " / 4";
 
-        // Slot 1 indicator
-        if (count >= 1) {
-            this.slot1Label.text      = "P1  [ READY ]";
-            this.slot1Label.textColor = new Color(80, 220, 80);
-        } else {
-            this.slot1Label.text      = "P1  [      ]";
-            this.slot1Label.textColor = new Color(80, 80, 80);
-        }
+        this._updateSlotLabel(this.slot1Label, 1, count >= 1);
+        this._updateSlotLabel(this.slot2Label, 2, count >= 2);
+        this._updateSlotLabel(this.slot3Label, 3, count >= 3);
+        this._updateSlotLabel(this.slot4Label, 4, count >= 4);
 
-        // Slot 2 indicator
-        if (count >= 2) {
-            this.slot2Label.text      = "P2  [ READY ]";
-            this.slot2Label.textColor = new Color(80, 220, 80);
-        } else {
-            this.slot2Label.text      = "P2  [      ]";
-            this.slot2Label.textColor = new Color(80, 80, 80);
-        }
+        this.startButton.visible = slot === 1 && count >= 2;
+        this.startButton.text = count >= 4 ? "Start Match" : "Start When Ready";
 
         // Status / start prompt
         if (count >= 2) {
             if (slot === 1) {
-                this.statusLabel.text      = "Press SPACE to start!";
+                this.statusLabel.text      = count >= 4 ? "Press SPACE to start with 4 players!" : "Press SPACE to start with the joined players!";
                 this.statusLabel.textColor = new Color(80, 220, 80);
                 if (Input.isKeyJustPressed("space")) {
                     P2PManager.requestStart();
@@ -129,7 +122,7 @@ export default class LobbyScene extends Scene {
 
         this.playerCountLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
             position: new Vec2(half.x, half.y + 120),
-            text: "0 / 2  players",
+            text: "Joined: 0 / 4",
         });
         this.playerCountLabel.textColor = Color.WHITE;
         this.playerCountLabel.fontSize  = 32;
@@ -148,11 +141,49 @@ export default class LobbyScene extends Scene {
         this.slot2Label.textColor = new Color(80, 80, 80);
         this.slot2Label.fontSize  = 26;
 
+        this.slot3Label = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
+            position: new Vec2(half.x - 160, half.y + 245),
+            text: "P3  [      ]",
+        });
+        this.slot3Label.textColor = new Color(80, 80, 80);
+        this.slot3Label.fontSize  = 26;
+
+        this.slot4Label = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
+            position: new Vec2(half.x + 160, half.y + 245),
+            text: "P4  [      ]",
+        });
+        this.slot4Label.textColor = new Color(80, 80, 80);
+        this.slot4Label.fontSize  = 26;
+
+        this.startButton = <Button>this.add.uiElement(UIElementType.BUTTON, LAYER, {
+            position: new Vec2(half.x, half.y + 200),
+            text: "Start Match",
+        });
+        this.startButton.backgroundColor = new Color(88, 72, 142);
+        this.startButton.borderColor     = new Color(38, 32, 70);
+        this.startButton.borderRadius    = 0;
+        this.startButton.borderWidth     = 2;
+        this.startButton.textColor       = Color.WHITE;
+        this.startButton.setPadding(new Vec2(70, 14));
+        this.startButton.font            = "PixelSimple";
+        this.startButton.fontSize        = 28;
+        this.startButton.onClick = () => {
+            if (P2PManager.mySlot === 1 && P2PManager.playerCount >= 2) {
+                P2PManager.requestStart();
+            }
+        };
+        this.startButton.visible = false;
+
         this.statusLabel = <Label>this.add.uiElement(UIElementType.LABEL, LAYER, {
             position: new Vec2(half.x, half.y + 265),
             text: "Waiting for players...",
         });
         this.statusLabel.textColor = new Color(140, 140, 140);
         this.statusLabel.fontSize  = 26;
+    }
+
+    private _updateSlotLabel(label: Label, slotNum: number, ready: boolean): void {
+        label.text = "P" + slotNum + (ready ? "  [ READY ]" : "  [      ]");
+        label.textColor = ready ? new Color(80, 220, 80) : new Color(80, 80, 80);
     }
 }

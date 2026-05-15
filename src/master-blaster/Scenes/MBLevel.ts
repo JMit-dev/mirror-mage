@@ -99,25 +99,43 @@ export default abstract class MBLevel extends Scene {
     /** The particle system used for the player's weapon */
     protected playerWeaponSystem!: PlayerWeapon;
     protected player2WeaponSystem!: PlayerWeapon;
+    protected player3WeaponSystem!: PlayerWeapon;
+    protected player4WeaponSystem!: PlayerWeapon;
     /** The key for the player's animated sprite */
     protected playerSpriteKey!: string;
     /** The key for player two's animated sprite */
     protected player2SpriteKey!: string;
+    /** The key for player three's animated sprite */
+    protected player3SpriteKey!: string;
+    /** The key for player four's animated sprite */
+    protected player4SpriteKey!: string;
     /** The animated sprites for both players */
     protected player!: AnimatedSprite;
     protected player2!: AnimatedSprite;
+    protected player3!: AnimatedSprite;
+    protected player4!: AnimatedSprite;
     /** Spawn positions */
     protected playerSpawn!: Vec2;
     protected player2Spawn!: Vec2;
+    protected player3Spawn!: Vec2;
+    protected player4Spawn!: Vec2;
     /** Arc mirrors orbiting each player */
     protected mirror!: Sprite;
     protected mirror2!: Sprite;
+    protected mirror3!: Sprite;
+    protected mirror4!: Sprite;
     protected spellCounters!: Array<Sprite>;
     protected spellCounters2!: Array<Sprite>;
+    protected spellCounters3!: Array<Sprite>;
+    protected spellCounters4!: Array<Sprite>;
     protected mirrorDirection: Vec2 = Vec2.RIGHT;
     protected mirror2Direction: Vec2 = Vec2.RIGHT;
+    protected mirror3Direction: Vec2 = Vec2.RIGHT;
+    protected mirror4Direction: Vec2 = Vec2.RIGHT;
     protected mirrorHitsRemaining: number = MBLevel.MIRROR_HITS_TO_BREAK;
     protected mirror2HitsRemaining: number = MBLevel.MIRROR_HITS_TO_BREAK;
+    protected mirror3HitsRemaining: number = MBLevel.MIRROR_HITS_TO_BREAK;
+    protected mirror4HitsRemaining: number = MBLevel.MIRROR_HITS_TO_BREAK;
 
     /** Stock/life system */
     protected stockIcons!: Array<Sprite>;
@@ -126,6 +144,8 @@ export default abstract class MBLevel extends Scene {
     protected stocksRemaining2: number = 0;
     protected respawnPosition!: Vec2;
     protected player2RespawnPosition!: Vec2;
+    protected player3RespawnPosition!: Vec2;
+    protected player4RespawnPosition!: Vec2;
     protected networkPublishCooldown: number = 0;
     protected lastRemotePlayer1Position: Vec2;
     protected lastRemotePlayer2Position: Vec2;
@@ -135,6 +155,19 @@ export default abstract class MBLevel extends Scene {
     // Latest state packets received from the remote peer via WebRTC
     protected remoteStateP1: StatePacket | null = null;
     protected remoteStateP2: StatePacket | null = null;
+    protected remoteStateP3: StatePacket | null = null;
+    protected remoteStateP4: StatePacket | null = null;
+
+    /** Multi-player online battle state */
+    protected multiPlayerMode: boolean = false;
+    protected multiPlayerSlots: Array<1 | 2 | 3 | 4> = [];
+    protected multiPlayerPlayers: Partial<Record<1 | 2 | 3 | 4, AnimatedSprite>> = {};
+    protected multiPlayerWeapons: Partial<Record<1 | 2 | 3 | 4, PlayerWeapon>> = {};
+    protected multiPlayerMirrors: Partial<Record<1 | 2 | 3 | 4, Sprite>> = {};
+    protected multiPlayerSpellCounters: Partial<Record<1 | 2 | 3 | 4, Array<Sprite>>> = {};
+    protected multiPlayerSpawnPositions: Partial<Record<1 | 2 | 3 | 4, Vec2>> = {};
+    protected multiPlayerDead: Partial<Record<1 | 2 | 3 | 4, boolean>> = {};
+    protected multiPlayerRemoteState: Partial<Record<1 | 2 | 3 | 4, StatePacket>> = {};
 
     /** The end of level stuff */
 
@@ -209,15 +242,20 @@ export default abstract class MBLevel extends Scene {
         this.initializeWeaponSystem2();
 
         this.initializeUI();
+        this.multiPlayerMode = this.isOnlineMultiPlayer();
 
         // Initialize players and mirrors
-        this.initializePlayer(this.playerSpriteKey);
-        this.initializeMirror();
-        this.initializeSpellCounter();
-        if ((this.localCoopTestingMode || !this.devTestingMode) && this.player2Spawn !== undefined) {
-            this.initializePlayer2(this.player2SpriteKey);
-            this.initializeMirror2();
-            this.initializeSpellCounter2();
+        if (this.multiPlayerMode) {
+            this.initializeMultiPlayerBattle();
+        } else {
+            this.initializePlayer(this.playerSpriteKey);
+            this.initializeMirror();
+            this.initializeSpellCounter();
+            if ((this.localCoopTestingMode || !this.devTestingMode) && this.player2Spawn !== undefined) {
+                this.initializePlayer2(this.player2SpriteKey);
+                this.initializeMirror2();
+                this.initializeSpellCounter2();
+            }
         }
 
         // Initialize the viewport - this must come after the player has been initialized
@@ -250,9 +288,21 @@ export default abstract class MBLevel extends Scene {
         this.emitter.fireEvent(GameEventType.PLAY_SOUND, {key: this.levelMusicKey, loop: true, holdReference: true, channel: AudioChannelType.MUSIC});
     }
 
+    protected isOnlineMultiPlayer(): boolean {
+        return !this.devTestingMode && !this.localCoopTestingMode && P2PManager.isConnected;
+    }
+
     /* Update method for the scene */
 
     public updateScene(deltaT: number) {
+        if (this.multiPlayerMode) {
+            this.updateMultiPlayerScene(deltaT);
+            while (this.receiver.hasNextEvent()) {
+                this.handleEvent(this.receiver.getNextEvent());
+            }
+            return;
+        }
+
         this.updateMirrorPosition();
         this.updateSpellCounterPosition();
         this.playerWeaponSystem.update(deltaT);
@@ -272,6 +322,243 @@ export default abstract class MBLevel extends Scene {
         // Handle all game events
         while (this.receiver.hasNextEvent()) {
             this.handleEvent(this.receiver.getNextEvent());
+        }
+    }
+
+    protected updateMultiPlayerScene(deltaT: number): void {
+        for (const slot of this.multiPlayerSlots) {
+            this.updateMirrorForSlot(slot);
+            this.updateSpellCounterForSlot(slot);
+            this.getWeaponSystemForSlot(slot)?.update(deltaT);
+        }
+
+        if (this.isOnlineHost()) {
+            for (const slot of this.multiPlayerSlots) {
+                const weapon = this.getWeaponSystemForSlot(slot);
+                if (weapon !== undefined) {
+                    this.updateWeaponProjectilesForSlot(weapon, slot);
+                }
+            }
+        }
+
+        this.updateFallDeathsMulti();
+        this.updatePowerupsMulti(deltaT);
+        this.syncMultiPlayerState(deltaT);
+    }
+
+    protected isOnlineHost(): boolean {
+        return this.multiPlayerMode && P2PManager.mySlot === 1;
+    }
+
+    protected updateMirrorForSlot(slot: 1 | 2 | 3 | 4): void {
+        const player = this.getPlayerForSlot(slot);
+        const mirror = this.multiPlayerMirrors[slot];
+        if (player === undefined || mirror === undefined) {
+            return;
+        }
+
+        if (!this.isMirrorActive(slot)) {
+            mirror.visible = false;
+            return;
+        }
+
+        mirror.visible = true;
+        const controller = player.ai as PlayerController;
+        const direction = this.getMirrorDirectionForSlot(slot, player, controller);
+        const orbitRadius = player.boundary.halfSize.x + mirror.boundary.halfSize.x + MBLevel.MIRROR_PADDING;
+        mirror.position.copy(player.position.clone().add(direction.scaled(orbitRadius)));
+        mirror.rotation = Math.atan2(-direction.y, direction.x);
+    }
+
+    protected getMirrorDirectionForSlot(slot: 1 | 2 | 3 | 4, player: AnimatedSprite, controller: PlayerController): Vec2 {
+        if (this.localCoopTestingMode || !MBLevel.DIRECTIONAL_MIRROR_AIM_ENABLED) {
+            return new Vec2(player.invertX ? -1 : 1, 0);
+        }
+
+        if (controller.isLocalPlayer) {
+            const mousePosition = Input.getGlobalMousePosition();
+            const mouseDirection = player.position.dirTo(mousePosition);
+            if (!mouseDirection.isZero()) {
+                return mouseDirection;
+            }
+        } else if (P2PManager.isConnected) {
+            const angle = controller.remoteMirrorAngle;
+            return new Vec2(Math.cos(angle), Math.sin(angle));
+        }
+
+        return new Vec2(player.invertX ? -1 : 1, 0);
+    }
+
+    protected updateSpellCounterForSlot(slot: 1 | 2 | 3 | 4): void {
+        const player = this.getPlayerForSlot(slot);
+        const counters = this.multiPlayerSpellCounters[slot];
+        if (player === undefined || counters === undefined) {
+            return;
+        }
+        this.updateSpellCounterRowForPlayer(counters, player);
+    }
+
+    protected updateWeaponProjectilesForSlot(weaponSystem: PlayerWeapon, ownerPlayerNum: 1 | 2 | 3 | 4): void {
+        for (const projectile of weaponSystem.getProjectiles()) {
+            if (!projectile.active) {
+                continue;
+            }
+
+            if (this.isProjectileOffScreen(projectile.sprite.position)) {
+                weaponSystem.deactivateById(projectile.sprite.id);
+                continue;
+            }
+
+            const initialMirrorPassThrough = projectile.reflectedOwnerPlayerNum === null && projectile.bounceCount === 0
+                ? ownerPlayerNum
+                : undefined;
+            const hitMirrorPlayer = this.getMirrorHitPlayerMulti(projectile.sprite, initialMirrorPassThrough);
+            if (hitMirrorPlayer !== null) {
+                weaponSystem.splitIceShardById(projectile.sprite.id);
+                this.damageMirror(hitMirrorPlayer);
+                this.sendNetEvent(EventId.MIRROR_HIT, hitMirrorPlayer);
+                if (!weaponSystem.recordHitById(projectile.sprite.id)) {
+                    continue;
+                }
+                weaponSystem.reflectById(projectile.sprite.id, hitMirrorPlayer);
+                continue;
+            }
+
+            const hitPlayer = this.getHitPlayerMulti(projectile.sprite);
+            if (hitPlayer !== null) {
+                if (!this.damagePlayer(hitPlayer)) {
+                    continue;
+                }
+                if (projectile.spellType === SpellType.ICE && weaponSystem.recordHitById(projectile.sprite.id)) {
+                    weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction));
+                    continue;
+                }
+                weaponSystem.deactivateById(projectile.sprite.id);
+                continue;
+            }
+
+            if (projectile.sprite.collidedWithTilemap) {
+                this.handleProjectileTileHit(weaponSystem, projectile);
+            }
+        }
+    }
+
+    protected updateFallDeathsMulti(): void {
+        const killY = this.getFallDeathY();
+        for (const slot of this.multiPlayerSlots) {
+            if (this.multiPlayerDead[slot]) {
+                continue;
+            }
+            const player = this.getPlayerForSlot(slot);
+            if (player !== undefined && player.boundary.top > killY) {
+                this.playDeathSound();
+                this.handlePlayerDeath(slot);
+            }
+        }
+    }
+
+    protected updatePowerupsMulti(deltaT: number): void {
+        for (let i = this.activePowerups.length - 1; i >= 0; i--) {
+            const powerup = this.activePowerups[i];
+            let pickedUpPlayer: 1 | 2 | 3 | 4 | null = null;
+
+            for (const slot of this.multiPlayerSlots) {
+                if (this.multiPlayerDead[slot]) {
+                    continue;
+                }
+                const player = this.getPlayerForSlot(slot);
+                if (player !== undefined && powerup.sprite.boundary.overlapArea(player.boundary) > 0) {
+                    pickedUpPlayer = slot;
+                    break;
+                }
+            }
+
+            if (pickedUpPlayer !== null) {
+                const playerSprite = this.getPlayerForSlot(pickedUpPlayer);
+                if (playerSprite !== undefined) {
+                    this.equipPlayerWithPowerup(playerSprite, powerup.spellType);
+                }
+                this.removePowerupByIndex(i);
+            }
+        }
+
+        this.powerupRespawnTimer -= deltaT;
+        if (this.powerupRespawnTimer <= 0) {
+            this.spawnRandomPowerup();
+            this.powerupRespawnTimer = MBLevel.POWERUP_RESPAWN_INTERVAL;
+        }
+    }
+
+    protected equipPlayerWithPowerup(player: AnimatedSprite, spellType: SpellType): void {
+        const pc = player.ai as PlayerController;
+        pc.equipSpell(spellType);
+    }
+
+    protected removePowerupByIndex(index: number): void {
+        const powerup = this.activePowerups[index];
+        if (powerup !== undefined) {
+            this.powerupSpawnPoints.push(powerup.spawnPosition);
+            powerup.sprite.visible = false;
+        }
+        this.activePowerups.splice(index, 1);
+    }
+
+    protected syncMultiPlayerState(_deltaT: number): void {
+        if (!P2PManager.isConnected) {
+            return;
+        }
+
+        const mySlot = P2PManager.mySlot as 1 | 2 | 3 | 4;
+        const localPlayer = this.getPlayerForSlot(mySlot);
+        if (localPlayer !== undefined) {
+            const pc = localPlayer.ai as PlayerController;
+            const mirrorAngle = Math.atan2(pc.aimDirection.y, pc.aimDirection.x);
+            const attackJustPressed = Input.isMouseJustPressed(0) || Input.isJustPressed(MBControls.ATTACK);
+
+            const pkt: StatePacket = {
+                playerNum: mySlot,
+                left:              Input.isPressed(MBControls.MOVE_LEFT),
+                right:             Input.isPressed(MBControls.MOVE_RIGHT),
+                jumpJustPressed:   Input.isJustPressed(MBControls.JUMP),
+                attackJustPressed,
+                invertX:           localPlayer.invertX,
+                mirrorAngle,
+                posX:              localPlayer.position.x,
+                posY:              localPlayer.position.y,
+                spellType:         encodeSpellType(attackJustPressed ? (pc.lastFiredSpell ?? pc.currentSpell) : pc.currentSpell),
+                spellUsesRemaining: pc.spellUsesRemaining,
+            };
+            P2PManager.send(encodeState(pkt));
+        }
+
+        for (const slot of this.multiPlayerSlots) {
+            if (slot === mySlot) {
+                continue;
+            }
+            const remotePlayer = this.getPlayerForSlot(slot);
+            const remoteState = this.multiPlayerRemoteState[slot];
+            if (remotePlayer === undefined || remoteState === undefined) {
+                continue;
+            }
+
+            const pc = remotePlayer.ai as PlayerController;
+            pc.remoteMirrorAngle = remoteState.mirrorAngle;
+            pc.setRemoteInput(remoteState.left, remoteState.right, remoteState.jumpJustPressed, remoteState.attackJustPressed);
+            pc.setCurrentSpell(decodeSpellType(remoteState.spellType), remoteState.spellUsesRemaining);
+            const dx = remoteState.posX - remotePlayer.position.x;
+            const dy = remoteState.posY - remotePlayer.position.y;
+            const moved = dx * dx + dy * dy > 4;
+            remotePlayer.position.set(remoteState.posX, remoteState.posY);
+            remotePlayer.invertX = remoteState.invertX;
+            if (!pc.isDead) {
+                if (dy < -2) {
+                    remotePlayer.animation.playIfNotAlready(PlayerAnimations.JUMP);
+                } else if (moved) {
+                    remotePlayer.animation.playIfNotAlready(PlayerAnimations.WALK);
+                } else {
+                    remotePlayer.animation.playIfNotAlready(PlayerAnimations.IDLE);
+                }
+            }
         }
     }
 
@@ -631,7 +918,21 @@ export default abstract class MBLevel extends Scene {
      * Handle a player death by decrementing stocks.
      * When a player runs out, the other player is the winner.
      */
-    protected handlePlayerDeath(playerNum: 1 | 2 = 1): void {
+    protected handlePlayerDeath(playerNum: 1 | 2 | 3 | 4 = 1): void {
+        if (this.multiPlayerMode) {
+            this.multiPlayerDead[playerNum] = true;
+            const player = this.getPlayerForSlot(playerNum);
+            if (player !== undefined) {
+                player.setAIActive(false, {});
+            }
+
+            const aliveSlots = this.multiPlayerSlots.filter(slot => !this.multiPlayerDead[slot]);
+            if (aliveSlots.length === 1 && this.isOnlineHost()) {
+                this.sceneManager.changeToScene(WinScene, { winner: aliveSlots[0], onlineMode: true });
+            }
+            return;
+        }
+
         const isOnline = !this.devTestingMode && !this.localCoopTestingMode && P2PManager.mySlot !== 0;
         // In online mode, only the owning client decrements stocks and broadcasts the respawn.
         const isAuthority = !isOnline || P2PManager.mySlot === playerNum;
@@ -794,6 +1095,29 @@ export default abstract class MBLevel extends Scene {
         this.player2WeaponSystem.initializePool(this, MBLayers.PRIMARY);
         for (const projectile of this.player2WeaponSystem.getProjectiles()) {
             projectile.sprite.setGroup(MBPhysicsGroups.PLAYER_WEAPON);
+        }
+    }
+
+    protected initializeWeaponSystemForSlot(slot: 1 | 2 | 3 | 4): void {
+        const weapon = new PlayerWeapon();
+        weapon.initializePool(this, MBLayers.PRIMARY);
+        for (const projectile of weapon.getProjectiles()) {
+            projectile.sprite.setGroup(MBPhysicsGroups.PLAYER_WEAPON);
+        }
+
+        switch (slot) {
+            case 1:
+                this.playerWeaponSystem = weapon;
+                break;
+            case 2:
+                this.player2WeaponSystem = weapon;
+                break;
+            case 3:
+                this.player3WeaponSystem = weapon;
+                break;
+            case 4:
+                this.player4WeaponSystem = weapon;
+                break;
         }
     }
     /**
@@ -1011,13 +1335,25 @@ export default abstract class MBLevel extends Scene {
         }
     }
 
-    protected isMirrorActive(playerNum: 1 | 2): boolean {
-        return playerNum === 1
-            ? this.mirrorHitsRemaining > 0
-            : this.mirror2HitsRemaining > 0;
+    protected isMirrorActive(playerNum: 1 | 2 | 3 | 4): boolean {
+        if (this.multiPlayerMode) {
+            if (playerNum === 1) return this.mirrorHitsRemaining > 0;
+            if (playerNum === 2) return this.mirror2HitsRemaining > 0;
+            if (playerNum === 3) return this.mirror3HitsRemaining > 0;
+            return this.mirror4HitsRemaining > 0;
+        }
+
+        if (playerNum === 1) return this.mirrorHitsRemaining > 0;
+        if (playerNum === 2) return this.mirror2HitsRemaining > 0;
+        if (playerNum === 3) return this.mirror3HitsRemaining > 0;
+        return this.mirror4HitsRemaining > 0;
     }
 
     protected getMirrorHitPlayer(spell: Sprite, excludedPlayerNum?: 1 | 2): 1 | 2 | null {
+        if (this.multiPlayerMode) {
+            return this.getMirrorHitPlayerMulti(spell, excludedPlayerNum) as 1 | 2 | null;
+        }
+
         return getHitMirrorOwner(spell, [
             {
                 playerNum: 1,
@@ -1032,7 +1368,24 @@ export default abstract class MBLevel extends Scene {
         ]);
     }
 
+    protected getMirrorHitPlayerMulti(spell: Sprite, excludedPlayerNum?: 1 | 2 | 3 | 4): 1 | 2 | 3 | 4 | null {
+        const candidates: Array<{ playerNum: 1 | 2 | 3 | 4; mirror?: Sprite; active: boolean }> = [];
+        for (const slot of this.multiPlayerSlots) {
+            const mirror = this.multiPlayerMirrors[slot];
+            candidates.push({
+                playerNum: slot,
+                mirror: excludedPlayerNum === slot ? undefined : mirror,
+                active: excludedPlayerNum !== slot && this.isMirrorActive(slot)
+            });
+        }
+        return getHitMirrorOwner(spell, candidates as any) as 1 | 2 | 3 | 4 | null;
+    }
+
     protected getHitPlayer(spell: Sprite, excludedPlayerNum?: 1 | 2): 1 | 2 | null {
+        if (this.multiPlayerMode) {
+            return this.getHitPlayerMulti(spell, excludedPlayerNum) as 1 | 2 | null;
+        }
+
         if (excludedPlayerNum !== 1 && this.player.boundary.overlapArea(spell.boundary) > 0) {
             return 1;
         }
@@ -1044,7 +1397,24 @@ export default abstract class MBLevel extends Scene {
         return null;
     }
 
-    protected damagePlayer(playerNum: 1 | 2): boolean {
+    protected getHitPlayerMulti(spell: Sprite, excludedPlayerNum?: 1 | 2 | 3 | 4): 1 | 2 | 3 | 4 | null {
+        for (const slot of this.multiPlayerSlots) {
+            if (excludedPlayerNum === slot) {
+                continue;
+            }
+            const player = this.getPlayerForSlot(slot);
+            if (player !== undefined && player.boundary.overlapArea(spell.boundary) > 0) {
+                return slot;
+            }
+        }
+        return null;
+    }
+
+    protected damagePlayer(playerNum: 1 | 2 | 3 | 4): boolean {
+        if (this.multiPlayerMode) {
+            return this.damagePlayerMulti(playerNum);
+        }
+
         const target = playerNum === 2 ? this.player2 : this.player;
         if (target === undefined) {
             return false;
@@ -1061,7 +1431,27 @@ export default abstract class MBLevel extends Scene {
         return true;
     }
 
-    protected getRespawnPosition(playerNum: 1 | 2): Vec2 {
+    protected damagePlayerMulti(playerNum: 1 | 2 | 3 | 4): boolean {
+        const target = this.getPlayerForSlot(playerNum);
+        if (target === undefined) {
+            return false;
+        }
+
+        const controller = target.ai as PlayerController;
+        if (controller.isDead || controller.isInvulnerable) {
+            return false;
+        }
+
+        controller.health -= 1;
+        this.sendNetEvent(EventId.PLAYER_HIT, playerNum);
+        return true;
+    }
+
+    protected getRespawnPosition(playerNum: 1 | 2 | 3 | 4): Vec2 {
+        if (this.multiPlayerMode) {
+            return this.getSpawnPositionForSlot(playerNum);
+        }
+
         if (playerNum === 2 && this.player2RespawnPosition !== undefined) {
             return this.player2RespawnPosition;
         }
@@ -1075,7 +1465,32 @@ export default abstract class MBLevel extends Scene {
             : this.playerSpawn;
     }
 
-    protected damageMirror(playerNum: 1 | 2): boolean {
+    protected damageMirror(playerNum: 1 | 2 | 3 | 4): boolean {
+        if (this.multiPlayerMode) {
+            if (playerNum === 1) {
+                this.mirrorHitsRemaining = consumeMirrorDurability(this.mirrorHitsRemaining);
+                if (this.mirrorHitsRemaining <= 0 && this.multiPlayerMirrors[1] !== undefined) {
+                    this.multiPlayerMirrors[1]!.visible = false;
+                }
+            } else if (playerNum === 2) {
+                this.mirror2HitsRemaining = consumeMirrorDurability(this.mirror2HitsRemaining);
+                if (this.mirror2HitsRemaining <= 0 && this.multiPlayerMirrors[2] !== undefined) {
+                    this.multiPlayerMirrors[2]!.visible = false;
+                }
+            } else if (playerNum === 3) {
+                this.mirror3HitsRemaining = consumeMirrorDurability(this.mirror3HitsRemaining);
+                if (this.mirror3HitsRemaining <= 0 && this.multiPlayerMirrors[3] !== undefined) {
+                    this.multiPlayerMirrors[3]!.visible = false;
+                }
+            } else {
+                this.mirror4HitsRemaining = consumeMirrorDurability(this.mirror4HitsRemaining);
+                if (this.mirror4HitsRemaining <= 0 && this.multiPlayerMirrors[4] !== undefined) {
+                    this.multiPlayerMirrors[4]!.visible = false;
+                }
+            }
+            return this.isMirrorActive(playerNum);
+        }
+
         if (!this.isMirrorActive(playerNum)) {
             return false;
         }
@@ -1095,7 +1510,19 @@ export default abstract class MBLevel extends Scene {
         return this.isMirrorActive(playerNum);
     }
 
-    protected restoreMirror(playerNum: 1 | 2): void {
+    protected restoreMirror(playerNum: 1 | 2 | 3 | 4): void {
+        if (this.multiPlayerMode) {
+            const mirror = this.multiPlayerMirrors[playerNum];
+            if (mirror !== undefined) {
+                mirror.visible = true;
+            }
+            if (playerNum === 1) this.mirrorHitsRemaining = MBLevel.MIRROR_HITS_TO_BREAK;
+            else if (playerNum === 2) this.mirror2HitsRemaining = MBLevel.MIRROR_HITS_TO_BREAK;
+            else if (playerNum === 3) this.mirror3HitsRemaining = MBLevel.MIRROR_HITS_TO_BREAK;
+            else this.mirror4HitsRemaining = MBLevel.MIRROR_HITS_TO_BREAK;
+            return;
+        }
+
         if (playerNum === 1) {
             this.mirrorHitsRemaining = MBLevel.MIRROR_HITS_TO_BREAK;
             if (this.mirror !== undefined) {
@@ -1133,6 +1560,127 @@ export default abstract class MBLevel extends Scene {
         }
     }
 
+    protected initializePlayerForSlot(slot: 1 | 2 | 3 | 4, key: string, spawn: Vec2): void {
+        const weapon = this.getWeaponSystemForSlot(slot);
+        if (weapon === undefined) {
+            throw new Error("Weapon system must be initialized before initializing player slot " + slot + "!");
+        }
+
+        const player = this.add.animatedSprite(key, MBLayers.PRIMARY);
+        const targetSize = MBLevel.PLAYER_TARGET_FRAME_SIZE;
+        const scale = targetSize / player.size.y;
+        player.scale.set(scale, scale);
+        player.position.copy(spawn);
+        player.addPhysics(new AABB(player.position.clone(), player.boundary.getHalfSize().clone()));
+        player.setGroup(MBPhysicsGroups.PLAYER);
+        player.addAI(PlayerController, {
+            weaponSystem: weapon,
+            tilemap: "Destructable",
+            playerNumber: slot,
+            isLocalPlayer: P2PManager.mySlot === slot,
+        });
+
+        if (slot === 1) this.player = player;
+        else if (slot === 2) this.player2 = player;
+        else if (slot === 3) this.player3 = player;
+        else this.player4 = player;
+
+        this.multiPlayerPlayers[slot] = player;
+        this.multiPlayerSpawnPositions[slot] = spawn;
+    }
+
+    protected initializeMirrorForSlot(slot: 1 | 2 | 3 | 4): void {
+        const mirror = this.add.sprite(MBLevel.MIRROR_SPRITE_KEY, MBLayers.PRIMARY);
+        mirror.scale.set(MBLevel.MIRROR_SCALE, MBLevel.MIRROR_SCALE);
+
+        if (slot === 1) {
+            this.mirror = mirror;
+            this.restoreMirror(1);
+        } else if (slot === 2) {
+            this.mirror2 = mirror;
+            this.restoreMirror(2);
+        } else if (slot === 3) {
+            this.mirror3 = mirror;
+            this.restoreMirror(3);
+        } else {
+            this.mirror4 = mirror;
+            this.restoreMirror(4);
+        }
+
+        this.multiPlayerMirrors[slot] = mirror;
+        this.updateMirrorForSlot(slot);
+    }
+
+    protected initializeSpellCounterForSlot(slot: 1 | 2 | 3 | 4): void {
+        const counters = this.createSpellCounterRow();
+        if (slot === 1) {
+            this.spellCounters = counters;
+        } else if (slot === 2) {
+            this.spellCounters2 = counters;
+        } else if (slot === 3) {
+            this.spellCounters3 = counters;
+        } else {
+            this.spellCounters4 = counters;
+        }
+
+        this.multiPlayerSpellCounters[slot] = counters;
+        this.updateSpellCounterForSlot(slot);
+    }
+
+    protected getWeaponSystemForSlot(slot: 1 | 2 | 3 | 4): PlayerWeapon | undefined {
+        switch (slot) {
+            case 1: return this.playerWeaponSystem;
+            case 2: return this.player2WeaponSystem;
+            case 3: return this.player3WeaponSystem;
+            case 4: return this.player4WeaponSystem;
+        }
+    }
+
+    protected getPlayerForSlot(slot: 1 | 2 | 3 | 4): AnimatedSprite | undefined {
+        return this.multiPlayerPlayers[slot]
+            ?? (slot === 1 ? this.player : slot === 2 ? this.player2 : slot === 3 ? this.player3 : this.player4);
+    }
+
+    protected initializeMultiPlayerBattle(): void {
+        const slotCount = Math.max(2, Math.min(4, P2PManager.playerCount || 2));
+        this.multiPlayerSlots = Array.from({ length: slotCount }, (_, i) => (i + 1) as 1 | 2 | 3 | 4);
+
+        for (const slot of this.multiPlayerSlots) {
+            this.initializeWeaponSystemForSlot(slot);
+        }
+
+        for (const slot of this.multiPlayerSlots) {
+            const spriteKey = this.getPlayerSpriteKeyForSlot(slot);
+            const spawn = this.getSpawnPositionForSlot(slot);
+            this.initializePlayerForSlot(slot, spriteKey, spawn);
+            this.initializeMirrorForSlot(slot);
+            this.initializeSpellCounterForSlot(slot);
+            this.multiPlayerDead[slot] = false;
+        }
+    }
+
+    protected getPlayerSpriteKeyForSlot(slot: 1 | 2 | 3 | 4): string {
+        switch (slot) {
+            case 1: return this.playerSpriteKey;
+            case 2: return this.player2SpriteKey;
+            case 3: return this.player3SpriteKey;
+            case 4: return this.player4SpriteKey;
+        }
+    }
+
+    protected getSpawnPositionForSlot(slot: 1 | 2 | 3 | 4): Vec2 {
+        switch (slot) {
+            case 1:
+                return this.playerSpawn.clone();
+            case 2:
+                return this.player2Spawn.clone();
+            case 3:
+                return this.player3Spawn.clone();
+            case 4:
+                return this.player4Spawn.clone();
+        }
+    }
+
     protected syncMultiplayerState(_deltaT: number): void {
         if (this.devTestingMode || P2PManager.mySlot === 0) {
             return;
@@ -1156,9 +1704,13 @@ export default abstract class MBLevel extends Scene {
 
         if (type === PacketType.STATE) {
             const pkt = decodeState(data);
-            const remoteSlot = P2PManager.mySlot === 1 ? 2 : 1;
-            if (remoteSlot === 1) this.remoteStateP1 = pkt;
-            else                  this.remoteStateP2 = pkt;
+            if (pkt.playerNum === 1) this.remoteStateP1 = pkt;
+            else if (pkt.playerNum === 2) this.remoteStateP2 = pkt;
+            else if (pkt.playerNum === 3) this.remoteStateP3 = pkt;
+            else this.remoteStateP4 = pkt;
+            if (this.multiPlayerMode) {
+                this.multiPlayerRemoteState[pkt.playerNum] = pkt;
+            }
         } else if (type === PacketType.EVENT) {
             this._handleNetEvent(decodeEvent(data));
         } else if (type === 0xf8 && data.byteLength >= 4) {
@@ -1228,6 +1780,7 @@ export default abstract class MBLevel extends Scene {
         const attackJustPressed = Input.isMouseJustPressed(0) || Input.isJustPressed(mySlot === 1 ? MBControls.ATTACK : MBControls.P2_ATTACK);
 
         const pkt: StatePacket = {
+            playerNum: mySlot,
             left:              Input.isPressed(mySlot === 1 ? MBControls.MOVE_LEFT  : MBControls.P2_MOVE_LEFT),
             right:             Input.isPressed(mySlot === 1 ? MBControls.MOVE_RIGHT : MBControls.P2_MOVE_RIGHT),
             jumpJustPressed:   Input.isJustPressed(mySlot === 1 ? MBControls.JUMP   : MBControls.P2_JUMP),
@@ -1273,7 +1826,7 @@ export default abstract class MBLevel extends Scene {
     }
 
     /** Send a game event to the remote peer (authoritative — shooter calls this). */
-    protected sendNetEvent(eventId: number, playerNum: 1 | 2, respawnX?: number, respawnY?: number): void {
+    protected sendNetEvent(eventId: number, playerNum: 1 | 2 | 3 | 4, respawnX?: number, respawnY?: number): void {
         if (!P2PManager.isConnected) return;
         P2PManager.send(encodeEvent({ eventId, playerNum, respawnX, respawnY }));
     }
@@ -1282,7 +1835,12 @@ export default abstract class MBLevel extends Scene {
     // Authoritative hit helpers — called locally and echoed to peer
     // -------------------------------------------------------------------------
 
-    private _applyPlayerHit(playerNum: 1 | 2): void {
+    private _applyPlayerHit(playerNum: 1 | 2 | 3 | 4): void {
+        if (this.multiPlayerMode) {
+            this.damagePlayerMulti(playerNum);
+            return;
+        }
+
         const target = playerNum === 2 ? this.player2 : this.player;
         if (target === undefined) return;
         const controller = target.ai as PlayerController;
@@ -1291,14 +1849,20 @@ export default abstract class MBLevel extends Scene {
         }
     }
 
-    private _applyMirrorHit(playerNum: 1 | 2): void {
+    private _applyMirrorHit(playerNum: 1 | 2 | 3 | 4): void {
         // Directly reduce durability — calling damageMirror would re-send MIRROR_HIT causing an infinite loop
         if (playerNum === 1) {
             this.mirrorHitsRemaining = consumeMirrorDurability(this.mirrorHitsRemaining);
             if (this.mirrorHitsRemaining <= 0 && this.mirror !== undefined) this.mirror.visible = false;
-        } else {
+        } else if (playerNum === 2) {
             this.mirror2HitsRemaining = consumeMirrorDurability(this.mirror2HitsRemaining);
             if (this.mirror2HitsRemaining <= 0 && this.mirror2 !== undefined) this.mirror2.visible = false;
+        } else if (playerNum === 3) {
+            this.mirror3HitsRemaining = consumeMirrorDurability(this.mirror3HitsRemaining);
+            if (this.mirror3HitsRemaining <= 0 && this.mirror3 !== undefined) this.mirror3.visible = false;
+        } else {
+            this.mirror4HitsRemaining = consumeMirrorDurability(this.mirror4HitsRemaining);
+            if (this.mirror4HitsRemaining <= 0 && this.mirror4 !== undefined) this.mirror4.visible = false;
         }
     }
 

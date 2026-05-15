@@ -1,14 +1,16 @@
 /**
  * Binary packet encoding for P2P game messages.
  *
- * STATE packet — sent every frame (15 bytes):
+ * STATE packet — sent every frame (17 bytes):
  *   [0]     type = 0x01
- *   [1]     flags: bit0=left, bit1=right, bit2=jumpJustPressed,
+ *   [1]     playerNum (1-4)
+ *   [2]     flags: bit0=left, bit1=right, bit2=jumpJustPressed,
  *                  bit3=attackJustPressed, bit4=invertX
- *   [2-5]   mirrorAngle: float32 LE  (mouse-based, meaningful for P1)
- *   [6-9]   posX: float32 LE
- *   [10-13] posY: float32 LE
- *   [14]    spellType byte (only relevant when attackJustPressed is set)
+ *   [3-6]   mirrorAngle: float32 LE  (mouse-based, meaningful for P1)
+ *   [7-10]  posX: float32 LE
+ *   [11-14] posY: float32 LE
+ *   [15]    spellType byte (only relevant when attackJustPressed is set)
+ *   [16]    spellUsesRemaining byte
  *
  * EVENT packet — sent on significant game events (3–11 bytes):
  *   [0]    type = 0x02
@@ -58,6 +60,7 @@ export const EventId = {
 // -------------------------------------------------------------------------
 
 export interface StatePacket {
+    playerNum: 1 | 2 | 3 | 4;
     left: boolean;
     right: boolean;
     jumpJustPressed: boolean;
@@ -71,39 +74,43 @@ export interface StatePacket {
 }
 
 export function encodeState(p: StatePacket): ArrayBuffer {
-    const buf = new ArrayBuffer(16);
+    const buf = new ArrayBuffer(17);
     const v = new DataView(buf);
     v.setUint8(0, PacketType.STATE);
+    v.setUint8(1, p.playerNum);
     const flags =
         (p.left            ? 0x01 : 0) |
         (p.right           ? 0x02 : 0) |
         (p.jumpJustPressed ? 0x04 : 0) |
         (p.attackJustPressed ? 0x08 : 0) |
         (p.invertX         ? 0x10 : 0);
-    v.setUint8(1, flags);
-    v.setFloat32(2, p.mirrorAngle, true);
-    v.setFloat32(6, p.posX, true);
-    v.setFloat32(10, p.posY, true);
-    v.setUint8(14, p.spellType & 0xff);
-    v.setUint8(15, p.spellUsesRemaining & 0xff);
+    v.setUint8(2, flags);
+    v.setFloat32(3, p.mirrorAngle, true);
+    v.setFloat32(7, p.posX, true);
+    v.setFloat32(11, p.posY, true);
+    v.setUint8(15, p.spellType & 0xff);
+    v.setUint8(16, p.spellUsesRemaining & 0xff);
     return buf;
 }
 
 export function decodeState(buf: ArrayBuffer): StatePacket {
     const v = new DataView(buf);
-    const flags = v.getUint8(1);
-    const spellType = v.getUint8(14);
+    const hasSlot = v.byteLength >= 17;
+    const playerNum = hasSlot ? (v.getUint8(1) as 1 | 2 | 3 | 4) : 1;
+    const flags = hasSlot ? v.getUint8(2) : v.getUint8(1);
+    const spellType = hasSlot ? v.getUint8(15) : v.getUint8(14);
     return {
+        playerNum,
         left:              (flags & 0x01) !== 0,
         right:             (flags & 0x02) !== 0,
         jumpJustPressed:   (flags & 0x04) !== 0,
         attackJustPressed: (flags & 0x08) !== 0,
         invertX:           (flags & 0x10) !== 0,
-        mirrorAngle:       v.getFloat32(2, true),
-        posX:              v.getFloat32(6, true),
-        posY:              v.getFloat32(10, true),
+        mirrorAngle:       hasSlot ? v.getFloat32(3, true) : v.getFloat32(2, true),
+        posX:              hasSlot ? v.getFloat32(7, true) : v.getFloat32(6, true),
+        posY:              hasSlot ? v.getFloat32(11, true) : v.getFloat32(10, true),
         spellType,
-        spellUsesRemaining: v.byteLength > 15 ? v.getUint8(15) : (spellType === 0 ? 0 : 1),
+        spellUsesRemaining: hasSlot ? v.getUint8(16) : (v.byteLength > 15 ? v.getUint8(15) : (spellType === 0 ? 0 : 1)),
     };
 }
 
@@ -113,7 +120,7 @@ export function decodeState(buf: ArrayBuffer): StatePacket {
 
 export interface EventPacket {
     eventId: number;
-    playerNum: 1 | 2;
+    playerNum: 1 | 2 | 3 | 4;
     respawnX?: number;
     respawnY?: number;
 }
@@ -135,7 +142,7 @@ export function encodeEvent(p: EventPacket): ArrayBuffer {
 export function decodeEvent(buf: ArrayBuffer): EventPacket {
     const v = new DataView(buf);
     const eventId   = v.getUint8(1);
-    const playerNum = v.getUint8(2) as 1 | 2;
+    const playerNum = v.getUint8(2) as 1 | 2 | 3 | 4;
     const isRespawn = eventId === EventId.PLAYER_RESPAWN;
     return {
         eventId,

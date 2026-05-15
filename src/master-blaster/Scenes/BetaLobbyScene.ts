@@ -19,6 +19,7 @@ type ListedRoom = {
 
 export default class BetaLobbyScene extends Scene {
     private static readonly ROOM_LIMIT = 3;
+    private static readonly MAX_PLAYERS = 4;
     private static readonly ROOM_TTL_MS = 30 * 60 * 1000;
     private static readonly REFRESH_INTERVAL = 2;
 
@@ -37,7 +38,7 @@ export default class BetaLobbyScene extends Scene {
     private hosting = false;
     private joining = false;
     private activeRoomCode = "";
-    private activeSlot: 0 | 1 | 2 = 0;
+    private activeSlot: 0 | 1 | 2 | 3 | 4 = 0;
 
     public startScene(): void {
         Input.enableInput();
@@ -66,7 +67,7 @@ export default class BetaLobbyScene extends Scene {
 
         this.waitingRoomLabel = this.createLabel(new Vec2(half.x, half.y - 75), "Waiting Room", 38, Color.BLACK);
         this.waitingRoomCodeLabel = this.createLabel(new Vec2(half.x, half.y), "Room ------", 34, new Color(88, 72, 142));
-        this.waitingRoomPlayersLabel = this.createLabel(new Vec2(half.x, half.y + 70), "Players 1/2", 28, new Color(40, 40, 40));
+        this.waitingRoomPlayersLabel = this.createLabel(new Vec2(half.x, half.y + 70), "Players 1/4", 28, new Color(40, 40, 40));
         this.startButton = this.createButtonControl(new Vec2(half.x, half.y + 155), "Start");
         this.startButton.onClick = () => this.startHostedGame();
 
@@ -79,9 +80,9 @@ export default class BetaLobbyScene extends Scene {
 
         P2PManager.onPeerConnected(() => {
             if (this.hosting) {
-                this.updateRoomMeta(P2PManager.roomCode, { playerCount: 2 });
+                this.updateRoomMeta(P2PManager.roomCode, { playerCount: P2PManager.playerCount });
                 this.statusLabel.text = "Player joined. Press Start.";
-                this.waitingRoomPlayersLabel.text = "Players 2/2";
+                this.waitingRoomPlayersLabel.text = "Players " + P2PManager.playerCount + "/" + BetaLobbyScene.MAX_PLAYERS;
                 this.startButton.visible = true;
             }
         });
@@ -93,7 +94,7 @@ export default class BetaLobbyScene extends Scene {
         });
 
         P2PManager.onStart(() => {
-            this.updateRoomMeta(P2PManager.roomCode, { started: true, playerCount: 2 });
+            this.updateRoomMeta(P2PManager.roomCode, { started: true, playerCount: P2PManager.playerCount });
             this.sceneManager.changeToScene(MainMenu);
         });
 
@@ -108,7 +109,7 @@ export default class BetaLobbyScene extends Scene {
 
         if (this.hosting && P2PManager.playerCount >= 2) {
             this.statusLabel.text = "Player joined. Press Start.";
-            this.waitingRoomPlayersLabel.text = "Players 2/2";
+            this.waitingRoomPlayersLabel.text = "Players " + P2PManager.playerCount + "/" + BetaLobbyScene.MAX_PLAYERS;
             this.startButton.visible = true;
             if (Input.isKeyJustPressed("space")) {
                 this.startHostedGame();
@@ -143,14 +144,14 @@ export default class BetaLobbyScene extends Scene {
         if (this.hosting || this.joining) return;
 
         const room = this.rooms[index];
-        if (room === undefined || room.playerCount >= 2) return;
+        if (room === undefined || room.playerCount >= BetaLobbyScene.MAX_PLAYERS) return;
 
         this.joining = true;
         this.activeRoomCode = room.code;
         this.activeSlot = 2;
         this.statusLabel.text = "Joining room " + room.code + "...";
         P2PManager.initRoom(room.code);
-        this.updateRoomMeta(room.code, { playerCount: 2 })
+        this.updateRoomMeta(room.code, { playerCount: Math.min(BetaLobbyScene.MAX_PLAYERS, room.playerCount + 1) })
             .then(() => {
                 this.showWaitingRoom("Joined room. Waiting for host...");
                 P2PManager.join();
@@ -173,7 +174,7 @@ export default class BetaLobbyScene extends Scene {
                         if (
                             meta?.beta === true &&
                             meta?.started !== true &&
-                            Number(meta?.playerCount ?? 0) < 2 &&
+                            Number(meta?.playerCount ?? 0) < BetaLobbyScene.MAX_PLAYERS &&
                             now - Number(meta?.createdAt ?? 0) < BetaLobbyScene.ROOM_TTL_MS
                         ) {
                             this.rooms.push({
@@ -209,7 +210,7 @@ export default class BetaLobbyScene extends Scene {
             const button = this.roomButtons[i];
             button.text = room === undefined
                 ? "Empty Room"
-                : "Join " + room.code + "   " + room.playerCount + "/2";
+                : "Join " + room.code + "   " + room.playerCount + "/" + BetaLobbyScene.MAX_PLAYERS;
             button.visible = !showingWaitingRoom;
             button.sizeToText();
         }
@@ -234,7 +235,8 @@ export default class BetaLobbyScene extends Scene {
         this.waitingRoomCodeLabel.visible = true;
         this.waitingRoomPlayersLabel.visible = true;
         this.waitingRoomCodeLabel.text = "Room " + this.activeRoomCode;
-        this.waitingRoomPlayersLabel.text = this.hosting ? "Players 1/2" : "Players 2/2";
+        const displayedCount = Math.max(1, Math.min(BetaLobbyScene.MAX_PLAYERS, P2PManager.playerCount || (this.hosting ? 1 : 2)));
+        this.waitingRoomPlayersLabel.text = "Players " + displayedCount + "/" + BetaLobbyScene.MAX_PLAYERS;
         this.startButton.visible = this.hosting && P2PManager.playerCount >= 2;
     }
 
@@ -242,7 +244,7 @@ export default class BetaLobbyScene extends Scene {
         if (!this.hosting || P2PManager.playerCount < 2) return;
 
         this.statusLabel.text = "Starting...";
-        this.updateRoomMeta(P2PManager.roomCode, { started: true, playerCount: 2 });
+        this.updateRoomMeta(P2PManager.roomCode, { started: true, playerCount: P2PManager.playerCount });
         P2PManager.requestStart();
     }
 

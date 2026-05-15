@@ -26,7 +26,7 @@ export default class MainMenu extends Scene {
     private static readonly TITLE_LOGO_PATH = "game_assets/spritesheets/Logo For Title Screen.png";
     private static readonly TITLE_LOGO_SCALE = 0.82;
     private static readonly TITLE_MUSIC_KEY = "TITLE_MUSIC";
-    private static readonly TITLE_MUSIC_PATH = "dist\\game_assets\\music\\title screen.wav";
+    private static readonly TITLE_MUSIC_PATH = "game_assets/music/title screen.wav";
 
     private subtitle!: Label;
     private onlineButton!: Button;
@@ -77,8 +77,8 @@ export default class MainMenu extends Scene {
 
         // If already in an online session (came from LobbyScene → SPACE)
         if (P2PManager.mySlot !== 0) {
-            if (P2PManager.mySlot === 2) {
-                // P2: skip the mode step, wait for P1's level choice
+            if (P2PManager.mySlot > 1) {
+                // Guests: skip the mode step, wait for P1's level choice
                 this.showWaitingForHost();
                 P2PManager.onLevelSelected((level) => {
                     setRuntimeMode(RuntimeModeValue.DEFAULT);
@@ -192,7 +192,7 @@ export default class MainMenu extends Scene {
             return;
         }
 
-        // P1 (host) broadcasts choice to P2 and transitions; P2 buttons are hidden
+        // P1 (host) broadcasts choice to guests and transitions; guest buttons are hidden
         if (P2PManager.mySlot === 1) {
             P2PManager.selectLevel(level);
             this.sceneManager.changeToScene(level === "level1" ? Level1 : Level2 as any);

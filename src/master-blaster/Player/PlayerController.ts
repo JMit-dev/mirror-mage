@@ -90,7 +90,11 @@ export default class PlayerController extends StateMachineAI {
         this.owner = owner;
 
         this._playerNumber = options.playerNumber === 2 ? 2 : 1;
-        this._isLocalPlayer = options.isLocalPlayer ?? (FirebaseManager.state.mySlot === 0 ? true : FirebaseManager.state.mySlot === this._playerNumber);
+        this._isLocalPlayer = options.isLocalPlayer ?? (
+            P2PManager.mySlot !== 0
+                ? P2PManager.mySlot === this._playerNumber
+                : (FirebaseManager.state.mySlot === 0 ? true : FirebaseManager.state.mySlot === this._playerNumber)
+        );
         this.weapon = options.weaponSystem;
 
         this.tilemap = this.owner.getScene().getTilemap(options.tilemap) as OrthogonalTilemap;
@@ -131,7 +135,7 @@ export default class PlayerController extends StateMachineAI {
         if (this._isLocalPlayer) {
             direction.x = (Input.isPressed(MBControls.MOVE_LEFT) ? -1 : 0) + (Input.isPressed(MBControls.MOVE_RIGHT) ? 1 : 0);
             direction.y = (Input.isJustPressed(MBControls.JUMP) ? -1 : 0);
-        } else if (FirebaseManager.state.mySlot === 0 && this._playerNumber === 2) {
+        } else if (P2PManager.mySlot === 0 && FirebaseManager.state.mySlot === 0 && this._playerNumber === 2) {
             // Local co-op / dev mode: P2 uses alternate keys
             direction.x = (Input.isPressed(MBControls.P2_MOVE_LEFT) ? -1 : 0) + (Input.isPressed(MBControls.P2_MOVE_RIGHT) ? 1 : 0);
             direction.y = (Input.isJustPressed(MBControls.P2_JUMP) ? -1 : 0);
@@ -151,7 +155,7 @@ export default class PlayerController extends StateMachineAI {
         if (this._isLocalPlayer) {
             return Input.isJustPressed(MBControls.JUMP);
         }
-        if (FirebaseManager.state.mySlot === 0 && this._playerNumber === 2) {
+        if (P2PManager.mySlot === 0 && FirebaseManager.state.mySlot === 0 && this._playerNumber === 2) {
             return Input.isJustPressed(MBControls.P2_JUMP);
         }
         // Remote: consume the one-shot flag
@@ -196,7 +200,7 @@ export default class PlayerController extends StateMachineAI {
         if (this._isLocalPlayer) {
             fired = (Input.isMouseJustPressed(0) || Input.isJustPressed(MBControls.ATTACK))
                 && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.aimDirection, this.currentSpell);
-        } else if (FirebaseManager.state.mySlot === 0 && this._playerNumber === 2) {
+        } else if (P2PManager.mySlot === 0 && FirebaseManager.state.mySlot === 0 && this._playerNumber === 2) {
             // Local co-op / dev mode.
             fired = Input.isJustPressed(MBControls.P2_ATTACK)
                 && this.weapon.tryFire(this.owner.position, this.owner.boundary.halfSize.x, this.aimDirection, this.currentSpell);
