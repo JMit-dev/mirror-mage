@@ -20,10 +20,13 @@ type ListedRoom = {
 };
 
 export default class BetaLobbyScene extends Scene {
-    private static readonly ROOM_LIMIT = 3;
+    private static readonly ROOM_LIMIT = 6;
     private static readonly MAX_PLAYERS = 4;
     private static readonly ROOM_TTL_MS = 30 * 60 * 1000;
     private static readonly REFRESH_INTERVAL = 2;
+    private static readonly ROOM_BUTTON_COLUMNS = 3;
+    private static readonly ROOM_BUTTON_X_SPACING = 330;
+    private static readonly ROOM_BUTTON_Y_SPACING = 72;
 
     private title!: Label;
     private statusLabel!: Label;
@@ -56,7 +59,7 @@ export default class BetaLobbyScene extends Scene {
         this.viewport.setFocus(half);
         this.viewport.setZoomLevel(1);
 
-        this.title = this.createLabel(new Vec2(half.x, half.y - 260), "Lobby (beta)", 52, Color.BLACK);
+        this.title = this.createLabel(new Vec2(half.x, half.y - 260), "Lobby", 52, Color.BLACK);
         this.statusLabel = this.createLabel(new Vec2(half.x, half.y - 190), "Loading rooms...", 24, new Color(40, 40, 40));
 
         this.createButton = this.createButtonControl(new Vec2(half.x - 180, half.y - 120), "Make Room");
@@ -66,7 +69,7 @@ export default class BetaLobbyScene extends Scene {
         this.refreshButton.onClick = () => this.refreshRooms();
 
         for (let i = 0; i < BetaLobbyScene.ROOM_LIMIT; i++) {
-            const button = this.createButtonControl(new Vec2(half.x, half.y - 35 + i * 62), "Empty");
+            const button = this.createButtonControl(this.getRoomButtonPosition(half, i), "Empty");
             const index = i;
             button.onClick = () => this.joinRoom(index);
             this.roomButtons.push(button);
@@ -79,7 +82,7 @@ export default class BetaLobbyScene extends Scene {
         this.startButton = this.createButtonControl(new Vec2(half.x, half.y + 175), "Start");
         this.startButton.onClick = () => this.startHostedGame();
 
-        this.backButton = this.createButtonControl(new Vec2(half.x, half.y + 305), "Back");
+        this.backButton = this.createButtonControl(new Vec2(half.x, half.y + 260), "Back");
         this.backButton.onClick = () => {
             this.leaveBetaLobby();
         };
@@ -512,6 +515,15 @@ export default class BetaLobbyScene extends Scene {
 
     private secondsFromMs(ms: number): number {
         return Math.max(0.25, ms / 1000);
+    }
+
+    private getRoomButtonPosition(half: Vec2, index: number): Vec2 {
+        const column = index % BetaLobbyScene.ROOM_BUTTON_COLUMNS;
+        const row = Math.floor(index / BetaLobbyScene.ROOM_BUTTON_COLUMNS);
+        const startX = half.x - BetaLobbyScene.ROOM_BUTTON_X_SPACING;
+        const x = startX + column * BetaLobbyScene.ROOM_BUTTON_X_SPACING;
+        const y = half.y - 35 + row * BetaLobbyScene.ROOM_BUTTON_Y_SPACING;
+        return new Vec2(x, y);
     }
 
     private createLabel(position: Vec2, text: string, fontSize: number, color: Color): Label {

@@ -91,7 +91,7 @@ export default class HowToScene extends Scene {
 
         const title = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
             position: new Vec2(size.x, 90),
-            text: "How to"
+            text: "Guide"
         });
         title.font = "PixelSimple";
         title.fontSize = 56;
@@ -214,7 +214,7 @@ export default class HowToScene extends Scene {
         lightningText.borderColor = Color.TRANSPARENT;
 
         const counterTitle = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x, 1115),
+            position: new Vec2(size.x, 975),
             text: "Spell Counter"
         });
         counterTitle.font = "PixelSimple";
@@ -224,19 +224,19 @@ export default class HowToScene extends Scene {
         counterTitle.borderColor = Color.TRANSPARENT;
 
         const spellCounterTopLeft = this.add.sprite(HowToScene.SPELL_COUNTER_KEY, HowToLayers.UI);
-        spellCounterTopLeft.position.copy(new Vec2(size.x + 185, 1195));
+        spellCounterTopLeft.position.copy(new Vec2(size.x + 185, 1055));
         spellCounterTopLeft.scale.set(0.28, 0.28);
 
         const spellCounterTopMiddle = this.add.sprite(HowToScene.SPELL_COUNTER_KEY, HowToLayers.UI);
-        spellCounterTopMiddle.position.copy(new Vec2(size.x + 290, 1195));
+        spellCounterTopMiddle.position.copy(new Vec2(size.x + 290, 1055));
         spellCounterTopMiddle.scale.set(0.28, 0.28);
 
         const spellCounterTopRight = this.add.sprite(HowToScene.SPELL_COUNTER_KEY, HowToLayers.UI);
-        spellCounterTopRight.position.copy(new Vec2(size.x + 395, 1195));
+        spellCounterTopRight.position.copy(new Vec2(size.x + 395, 1055));
         spellCounterTopRight.scale.set(0.28, 0.28);
 
         const counterTextLine1 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x - 250, 1170),
+            position: new Vec2(size.x - 250, 1030),
             text: "This is your spell counter."
         });
         counterTextLine1.font = "PixelSimple";
@@ -246,7 +246,7 @@ export default class HowToScene extends Scene {
         counterTextLine1.borderColor = Color.TRANSPARENT;
 
         const counterTextLine2 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x - 250, 1220),
+            position: new Vec2(size.x - 250, 1080),
             text: "It changes color based on your spell"
         });
         counterTextLine2.font = "PixelSimple";
@@ -256,7 +256,7 @@ export default class HowToScene extends Scene {
         counterTextLine2.borderColor = Color.TRANSPARENT;
 
         const counterTextLine3 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x - 250, 1270),
+            position: new Vec2(size.x - 250, 1130),
             text: "and depleats as you use charges."
         });
         counterTextLine3.font = "PixelSimple";
@@ -266,7 +266,7 @@ export default class HowToScene extends Scene {
         counterTextLine3.borderColor = Color.TRANSPARENT;
 
         const counterTextLine4 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x - 250, 1320),
+            position: new Vec2(size.x - 250, 1180),
             text: "You get 3 uses. Use wisely."
         });
         counterTextLine4.font = "PixelSimple";
@@ -276,7 +276,7 @@ export default class HowToScene extends Scene {
         counterTextLine4.borderColor = Color.TRANSPARENT;
 
         const mirrorTitle = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x, 1460),
+            position: new Vec2(size.x, 1320),
             text: "Mage's Mirror"
         });
         mirrorTitle.font = "PixelSimple";
@@ -286,7 +286,7 @@ export default class HowToScene extends Scene {
         mirrorTitle.borderColor = Color.TRANSPARENT;
 
         const mirrorTextLine1 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x - 255, 1530),
+            position: new Vec2(size.x - 255, 1390),
             text: "This is your Mage's Mirror."
         });
         mirrorTextLine1.font = "PixelSimple";
@@ -296,7 +296,7 @@ export default class HowToScene extends Scene {
         mirrorTextLine1.borderColor = Color.TRANSPARENT;
 
         const mirrorTextLine2 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x - 255, 1580),
+            position: new Vec2(size.x - 255, 1440),
             text: "It can be used to reflect spells"
         });
         mirrorTextLine2.font = "PixelSimple";
@@ -306,7 +306,7 @@ export default class HowToScene extends Scene {
         mirrorTextLine2.borderColor = Color.TRANSPARENT;
 
         const mirrorTextLine3 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x - 255, 1630),
+            position: new Vec2(size.x - 255, 1490),
             text: "back at your enemy, but careful:"
         });
         mirrorTextLine3.font = "PixelSimple";
@@ -316,7 +316,7 @@ export default class HowToScene extends Scene {
         mirrorTextLine3.borderColor = Color.TRANSPARENT;
 
         const mirrorTextLine4 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x - 255, 1680),
+            position: new Vec2(size.x - 255, 1540),
             text: "it breaks after 3 hits, then returns on respawn."
         });
         mirrorTextLine4.font = "PixelSimple";
@@ -326,11 +326,11 @@ export default class HowToScene extends Scene {
         mirrorTextLine4.borderColor = Color.TRANSPARENT;
 
         const mirror = this.add.sprite(HowToScene.MIRROR_KEY, HowToLayers.UI);
-        mirror.position.copy(new Vec2(size.x + 300, 1605));
+        mirror.position.copy(new Vec2(size.x + 300, 1465));
         mirror.scale.set(0.6, 0.6);
 
         const goalTextLine1 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x, 1840),
+            position: new Vec2(size.x, 1700),
             text: "Your goal is to best your fellow mage"
         });
         goalTextLine1.font = "PixelSimple";
@@ -340,7 +340,7 @@ export default class HowToScene extends Scene {
         goalTextLine1.borderColor = Color.TRANSPARENT;
 
         const goalTextLine2 = <Label>this.add.uiElement(UIElementType.LABEL, HowToLayers.UI, {
-            position: new Vec2(size.x, 1890),
+            position: new Vec2(size.x, 1750),
             text: "in combat and win."
         });
         goalTextLine2.font = "PixelSimple";
@@ -350,7 +350,7 @@ export default class HowToScene extends Scene {
         goalTextLine2.borderColor = Color.TRANSPARENT;
 
         const trophy = this.add.sprite(HowToScene.TROPHY_KEY, HowToLayers.UI);
-        trophy.position.copy(new Vec2(size.x, 2010));
+        trophy.position.copy(new Vec2(size.x, 1870));
         trophy.scale.set(1.1, 1.1);
 
         this.registerScrollContent(

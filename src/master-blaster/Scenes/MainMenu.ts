@@ -21,11 +21,12 @@ export const MenuLayers = {
 
 export default class MainMenu extends Scene {
     private static readonly TITLE_LOGO_KEY = "TITLE_LOGO";
-    private static readonly TITLE_LOGO_PATH = "game_assets/spritesheets/Logo For Title Screen.png";
+    private static readonly TITLE_LOGO_PATH = "game_assets/spritesheets/Mage Mirror Logo Updated.png";
     private static readonly TITLE_LOGO_SCALE = 0.82;
     private static readonly TITLE_MUSIC_KEY = "TITLE_MUSIC";
     private static readonly TITLE_MUSIC_PATH = "game_assets/music/title screen.wav";
 
+    private titleLogo!: Sprite;
     private subtitle!: Label;
     private onlineButton!: Button;
     private betaLobbyButton!: Button;
@@ -50,9 +51,9 @@ export default class MainMenu extends Scene {
         this.viewport.setFocus(size);
         this.viewport.setZoomLevel(1);
 
-        const titleLogo = <Sprite>this.add.sprite(MainMenu.TITLE_LOGO_KEY, MenuLayers.MAIN);
-        titleLogo.position.copy(new Vec2(size.x, size.y - 120));
-        titleLogo.scale.set(MainMenu.TITLE_LOGO_SCALE, MainMenu.TITLE_LOGO_SCALE);
+        this.titleLogo = <Sprite>this.add.sprite(MainMenu.TITLE_LOGO_KEY, MenuLayers.MAIN);
+        this.titleLogo.position.copy(new Vec2(size.x, size.y - 120));
+        this.titleLogo.scale.set(MainMenu.TITLE_LOGO_SCALE, MainMenu.TITLE_LOGO_SCALE);
 
         this.subtitle = <Label>this.add.uiElement(UIElementType.LABEL, MenuLayers.MAIN, {
             position: new Vec2(size.x, size.y + 20),
@@ -97,10 +98,10 @@ export default class MainMenu extends Scene {
     }
 
     protected createModeControls(size: Vec2): void {
-        this.onlineButton = this.createButton(new Vec2(size.x - 130, size.y + 100), "Online");
+        this.onlineButton = this.createButton(new Vec2(size.x - 130, size.y + 100), "Online Old");
         this.localButton = this.createButton(new Vec2(size.x + 130, size.y + 100), "Local");
-        this.betaLobbyButton = this.createButton(new Vec2(size.x, size.y + 185), "Lobby(beta)");
-        this.howToButton = this.createButton(new Vec2(size.x, size.y + 265), "How to");
+        this.betaLobbyButton = this.createButton(new Vec2(size.x - 130, size.y + 100), "Online");
+        this.howToButton = this.createButton(new Vec2(size.x, size.y + 215), "Guide");
 
         this.localButton.onClick = () => {
             this.pendingMode = RuntimeModeValue.LOCAL_COOP_TESTING;
@@ -131,8 +132,9 @@ export default class MainMenu extends Scene {
 
     protected showModeMenu(): void {
         this.pendingMode = RuntimeModeValue.DEFAULT;
-        this.subtitle.text = "Choose a mode";
-        this.onlineButton.visible = true;
+        this.titleLogo.visible = true;
+        this.subtitle.text = "";
+        this.onlineButton.visible = false;
         this.betaLobbyButton.visible = true;
         this.localButton.visible = true;
         this.howToButton.visible = true;
@@ -145,6 +147,7 @@ export default class MainMenu extends Scene {
 
     protected showLevelMenu(): void {
         const localMode = this.pendingMode === RuntimeModeValue.LOCAL_COOP_TESTING;
+        this.titleLogo.visible = !localMode;
         this.subtitle.text = localMode ? "Choose a local level" : "Choose an online level";
         this.onlineButton.visible = false;
         this.betaLobbyButton.visible = false;
@@ -158,6 +161,7 @@ export default class MainMenu extends Scene {
     }
 
     protected showWaitingForHost(): void {
+        this.titleLogo.visible = true;
         this.subtitle.text = "Waiting for host to choose level...";
         this.onlineButton.visible = false;
         this.betaLobbyButton.visible = false;
