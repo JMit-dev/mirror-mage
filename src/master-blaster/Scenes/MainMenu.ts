@@ -1,9 +1,11 @@
 import Vec2 from "../../Wolfie2D/DataTypes/Vec2";
+import { GameEventType } from "../../Wolfie2D/Events/GameEventType";
 import Input from "../../Wolfie2D/Input/Input";
 import Sprite from "../../Wolfie2D/Nodes/Sprites/Sprite";
 import Button from "../../Wolfie2D/Nodes/UIElements/Button";
 import Label from "../../Wolfie2D/Nodes/UIElements/Label";
 import { UIElementType } from "../../Wolfie2D/Nodes/UIElements/UIElementTypes";
+import AudioManager, { AudioChannelType } from "../../Wolfie2D/Sound/AudioManager";
 import Scene from "../../Wolfie2D/Scene/Scene";
 import Color from "../../Wolfie2D/Utils/Color";
 import Level1 from "./MBLevel1";
@@ -23,6 +25,8 @@ export default class MainMenu extends Scene {
     private static readonly TITLE_LOGO_KEY = "TITLE_LOGO";
     private static readonly TITLE_LOGO_PATH = "game_assets/spritesheets/Logo For Title Screen.png";
     private static readonly TITLE_LOGO_SCALE = 0.82;
+    private static readonly TITLE_MUSIC_KEY = "TITLE_MUSIC";
+    private static readonly TITLE_MUSIC_PATH = "dist\\game_assets\\music\\title screen.wav";
 
     private subtitle!: Label;
     private onlineButton!: Button;
@@ -36,6 +40,7 @@ export default class MainMenu extends Scene {
 
     public loadScene(): void {
         this.load.image(MainMenu.TITLE_LOGO_KEY, MainMenu.TITLE_LOGO_PATH);
+        this.load.audio(MainMenu.TITLE_MUSIC_KEY, MainMenu.TITLE_MUSIC_PATH);
     }
 
     public startScene(): void {
@@ -89,6 +94,10 @@ export default class MainMenu extends Scene {
         }
     }
 
+    public unloadScene(): void {
+        this.stopTitleMusic();
+    }
+
     public updateScene(): void {
         // nothing — all transitions are event-driven now
     }
@@ -136,6 +145,8 @@ export default class MainMenu extends Scene {
         this.level1Button.visible  = false;
         this.level2Button.visible  = false;
         this.backButton.visible    = false;
+
+        this.playTitleMusic();
     }
 
     protected showLevelMenu(): void {
@@ -148,6 +159,8 @@ export default class MainMenu extends Scene {
         this.level1Button.visible  = true;
         this.level2Button.visible  = true;
         this.backButton.visible    = true;
+
+        this.stopTitleMusic();
     }
 
     protected showWaitingForHost(): void {
@@ -159,11 +172,14 @@ export default class MainMenu extends Scene {
         this.level1Button.visible  = false;
         this.level2Button.visible  = false;
         this.backButton.visible    = false;
+
+        this.stopTitleMusic();
     }
 
     protected handleLevelSelection(level: "level1" | "level2"): void {
         const localMode = this.pendingMode === RuntimeModeValue.LOCAL_COOP_TESTING;
         setRuntimeMode(localMode ? RuntimeModeValue.LOCAL_COOP_TESTING : RuntimeModeValue.DEFAULT);
+        this.stopTitleMusic();
 
         if (localMode) {
             this.sceneManager.changeToScene(level === "level1" ? Level1 : Level2 as any);
@@ -194,5 +210,20 @@ export default class MainMenu extends Scene {
         button.font            = "PixelSimple";
         button.fontSize        = 32;
         return button;
+    }
+
+    private playTitleMusic(): void {
+        this.emitter.fireEvent(GameEventType.STOP_SOUND, { key: MainMenu.TITLE_MUSIC_KEY });
+        AudioManager.setVolume(AudioChannelType.MUSIC, 0.4);
+        this.emitter.fireEvent(GameEventType.PLAY_SOUND, {
+            key: MainMenu.TITLE_MUSIC_KEY,
+            loop: true,
+            holdReference: true,
+            channel: AudioChannelType.MUSIC
+        });
+    }
+
+    private stopTitleMusic(): void {
+        this.emitter.fireEvent(GameEventType.STOP_SOUND, { key: MainMenu.TITLE_MUSIC_KEY });
     }
 }
