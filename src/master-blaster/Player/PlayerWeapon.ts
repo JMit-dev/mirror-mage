@@ -178,6 +178,13 @@ export default class PlayerWeapon {
         }
 
         source.splitShardSpawned = true;
+        const seedBase = PlayerWeapon.getDeterministicSeed(
+            source.sprite.position.x,
+            source.sprite.position.y,
+            source.direction.x,
+            source.direction.y,
+            source.bounceCount
+        );
 
         for (let i = 0; i < PlayerWeapon.ICE_SHARD_COUNT; i++) {
             const shard = this.projectiles.find(entry => !entry.active);
@@ -185,7 +192,7 @@ export default class PlayerWeapon {
                 return;
             }
 
-            const angle = Math.random() * Math.PI * 2;
+            const angle = PlayerWeapon.getDeterministicUnit(seedBase + i * 977) * Math.PI * 2;
             const direction = new Vec2(Math.cos(angle), Math.sin(angle));
             shard.direction = direction;
             shard.spellType = SpellType.ICE;
@@ -233,7 +240,7 @@ export default class PlayerWeapon {
         return this.projectiles;
     }
 
-    public reflectById(id: number, reflectedOwnerPlayerNum: 1 | 2 | 3 | 4): boolean {
+    public reflectById(id: number, reflectedOwnerPlayerNum: 1 | 2 | 3 | 4, seed: number = 0): boolean {
         const projectile = this.projectiles.find(entry => entry.sprite.id === id);
         if (projectile === undefined || !projectile.active) {
             return false;
@@ -247,7 +254,7 @@ export default class PlayerWeapon {
             }
         }
 
-        projectile.direction = PlayerWeapon.getBounceDirection(projectile.direction);
+        projectile.direction = PlayerWeapon.getBounceDirection(projectile.direction, seed);
 
         projectile.reflectedOwnerPlayerNum = reflectedOwnerPlayerNum;
         projectile.sprite.invertX = projectile.direction.x < 0;
@@ -276,13 +283,26 @@ export default class PlayerWeapon {
         projectile.sprite.position.add(newDirection.scaled(projectile.sprite.boundary.halfSize.x + 5));
     }
 
-    public static getBounceDirection(direction: Vec2): Vec2 {
-        if (Math.random() < 0.7) {
+    public static getBounceDirection(direction: Vec2, seed: number = 0): Vec2 {
+        if (PlayerWeapon.getDeterministicUnit(seed) < 0.7) {
             return direction.scaled(-1).normalize();
         }
 
-        const angle = Math.random() * Math.PI * 2;
+        const angle = PlayerWeapon.getDeterministicUnit(seed + 1) * Math.PI * 2;
         return new Vec2(Math.cos(angle), Math.sin(angle));
+    }
+
+    protected static getDeterministicSeed(...values: number[]): number {
+        let seed = 0;
+        for (let i = 0; i < values.length; i++) {
+            seed += Math.round(values[i] * 1000) * (i * 811 + 131);
+        }
+        return seed;
+    }
+
+    protected static getDeterministicUnit(seed: number): number {
+        const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+        return x - Math.floor(x);
     }
 
     public deactivateById(id: number): void {

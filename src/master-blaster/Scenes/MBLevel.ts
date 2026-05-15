@@ -148,6 +148,8 @@ export default abstract class MBLevel extends Scene {
     protected stocksRemaining: number = 0;
     protected stockIcons2!: Array<Sprite>;
     protected stocksRemaining2: number = 0;
+    protected stocksRemaining3: number = 0;
+    protected stocksRemaining4: number = 0;
     protected stockIcons3!: Array<Sprite>;
     protected stockIcons4!: Array<Sprite>;
     protected respawnPosition!: Vec2;
@@ -232,6 +234,8 @@ export default abstract class MBLevel extends Scene {
         this.add = new MBFactoryManager(this, this.tilemaps);
         this.stocksRemaining = MBLevel.STOCK_COUNT;
         this.stocksRemaining2 = MBLevel.STOCK_COUNT;
+        this.stocksRemaining3 = MBLevel.STOCK_COUNT;
+        this.stocksRemaining4 = MBLevel.STOCK_COUNT;
         this.lastRemotePlayer1Position = Vec2.ZERO;
         this.lastRemotePlayer2Position = Vec2.ZERO;
         this.devTestingMode = isDevTestingMode();
@@ -340,12 +344,16 @@ export default abstract class MBLevel extends Scene {
             this.getWeaponSystemForSlot(slot)?.update(deltaT);
         }
 
-        if (this.isOnlineHost()) {
-            for (const slot of this.multiPlayerSlots) {
-                const weapon = this.getWeaponSystemForSlot(slot);
-                if (weapon !== undefined) {
-                    this.updateWeaponProjectilesForSlot(weapon, slot);
-                }
+        for (const slot of this.multiPlayerSlots) {
+            const weapon = this.getWeaponSystemForSlot(slot);
+            if (weapon === undefined) {
+                continue;
+            }
+
+            if (this.isOnlineHost()) {
+                this.updateWeaponProjectilesForSlot(weapon, slot);
+            } else {
+                this.updateWeaponProjectilesForSlotVisual(weapon, slot);
             }
         }
 
@@ -428,17 +436,57 @@ export default abstract class MBLevel extends Scene {
                 if (!weaponSystem.recordHitById(projectile.sprite.id)) {
                     continue;
                 }
-                weaponSystem.reflectById(projectile.sprite.id, hitMirrorPlayer);
+                weaponSystem.reflectById(projectile.sprite.id, hitMirrorPlayer, this.getProjectileSyncSeed(projectile));
                 continue;
             }
 
-            const hitPlayer = this.getHitPlayerMulti(projectile.sprite);
+            const hitPlayer = this.getHitPlayerMulti(projectile.sprite, initialMirrorPassThrough);
             if (hitPlayer !== null) {
                 if (!this.damagePlayer(hitPlayer)) {
                     continue;
                 }
                 if (projectile.spellType === SpellType.ICE && weaponSystem.recordHitById(projectile.sprite.id)) {
-                    weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction));
+                    weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction, this.getProjectileSyncSeed(projectile)));
+                    continue;
+                }
+                weaponSystem.deactivateById(projectile.sprite.id);
+                continue;
+            }
+
+            if (projectile.sprite.collidedWithTilemap) {
+                this.handleProjectileTileHit(weaponSystem, projectile);
+            }
+        }
+    }
+
+    protected updateWeaponProjectilesForSlotVisual(weaponSystem: PlayerWeapon, ownerPlayerNum: 1 | 2 | 3 | 4): void {
+        for (const projectile of weaponSystem.getProjectiles()) {
+            if (!projectile.active) {
+                continue;
+            }
+
+            if (this.isProjectileOffScreen(projectile.sprite.position)) {
+                weaponSystem.deactivateById(projectile.sprite.id);
+                continue;
+            }
+
+            const initialMirrorPassThrough = projectile.reflectedOwnerPlayerNum === null && projectile.bounceCount === 0
+                ? ownerPlayerNum
+                : undefined;
+            const hitMirrorPlayer = this.getMirrorHitPlayerMulti(projectile.sprite, initialMirrorPassThrough);
+            if (hitMirrorPlayer !== null) {
+                weaponSystem.splitIceShardById(projectile.sprite.id);
+                if (!weaponSystem.recordHitById(projectile.sprite.id)) {
+                    continue;
+                }
+                weaponSystem.reflectById(projectile.sprite.id, hitMirrorPlayer, this.getProjectileSyncSeed(projectile));
+                continue;
+            }
+
+            const hitPlayer = this.getHitPlayerMulti(projectile.sprite, initialMirrorPassThrough);
+            if (hitPlayer !== null) {
+                if (projectile.spellType === SpellType.ICE && weaponSystem.recordHitById(projectile.sprite.id)) {
+                    weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction, this.getProjectileSyncSeed(projectile)));
                     continue;
                 }
                 weaponSystem.deactivateById(projectile.sprite.id);
@@ -741,13 +789,39 @@ export default abstract class MBLevel extends Scene {
         return true;
     }
 
-    private _sendGameOver(winner: 1 | 2): void {
+    private _sendGameOver(winner: 1 | 2 | 3 | 4): void {
         if (!P2PManager.isConnected) return;
         const buf = new ArrayBuffer(2);
         const v = new DataView(buf);
         v.setUint8(0, 0xf5);
         v.setUint8(1, winner);
         P2PManager.send(buf);
+    }
+
+    protected getStocksRemainingForSlot(slot: 1 | 2 | 3 | 4): number {
+        switch (slot) {
+            case 1: return this.stocksRemaining;
+            case 2: return this.stocksRemaining2;
+            case 3: return this.stocksRemaining3;
+            case 4: return this.stocksRemaining4;
+        }
+    }
+
+    protected decrementStocksForSlot(slot: 1 | 2 | 3 | 4): number {
+        switch (slot) {
+            case 1:
+                this.stocksRemaining = Math.max(0, this.stocksRemaining - 1);
+                return this.stocksRemaining;
+            case 2:
+                this.stocksRemaining2 = Math.max(0, this.stocksRemaining2 - 1);
+                return this.stocksRemaining2;
+            case 3:
+                this.stocksRemaining3 = Math.max(0, this.stocksRemaining3 - 1);
+                return this.stocksRemaining3;
+            case 4:
+                this.stocksRemaining4 = Math.max(0, this.stocksRemaining4 - 1);
+                return this.stocksRemaining4;
+        }
     }
 
     private _sendPowerupSpawn(spawnIdx: number, spellType: SpellType): void {
@@ -855,7 +929,7 @@ export default abstract class MBLevel extends Scene {
                 if (!weaponSystem.recordHitById(projectile.sprite.id)) {
                     continue;
                 }
-                weaponSystem.reflectById(projectile.sprite.id, hitMirrorPlayer);
+                weaponSystem.reflectById(projectile.sprite.id, hitMirrorPlayer, this.getProjectileSyncSeed(projectile));
                 continue;
             }
 
@@ -865,7 +939,7 @@ export default abstract class MBLevel extends Scene {
                     continue;
                 }
                 if (projectile.spellType === SpellType.ICE && weaponSystem.recordHitById(projectile.sprite.id)) {
-                    weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction));
+                    weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction, this.getProjectileSyncSeed(projectile)));
                     continue;
                 }
                 weaponSystem.deactivateById(projectile.sprite.id);
@@ -897,7 +971,7 @@ export default abstract class MBLevel extends Scene {
             return;
         }
 
-        weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction));
+        weaponSystem.setBounceDirection(projectile.sprite.id, PlayerWeapon.getBounceDirection(projectile.direction, this.getProjectileSyncSeed(projectile)));
     }
 
     /**
@@ -928,15 +1002,34 @@ export default abstract class MBLevel extends Scene {
      */
     protected handlePlayerDeath(playerNum: 1 | 2 | 3 | 4 = 1): void {
         if (this.multiPlayerMode) {
-            this.multiPlayerDead[playerNum] = true;
-            this.updateStockDisplay();
-            const player = this.getPlayerForSlot(playerNum);
-            if (player !== undefined) {
-                player.setAIActive(false, {});
+            if (!this.isOnlineHost()) {
+                return;
             }
 
-            const aliveSlots = this.multiPlayerSlots.filter(slot => !this.multiPlayerDead[slot]);
-            if (aliveSlots.length === 1 && this.isOnlineHost()) {
+            const player = this.getPlayerForSlot(playerNum);
+            const controller = player?.ai as PlayerController | undefined;
+            const stocksRemaining = this.decrementStocksForSlot(playerNum);
+            const respawnTarget = this.getRespawnPosition(playerNum);
+            this.sendNetEvent(EventId.PLAYER_RESPAWN, playerNum, respawnTarget.x, respawnTarget.y);
+            this.updateStockDisplay();
+
+            if (stocksRemaining <= 0) {
+                this.multiPlayerDead[playerNum] = true;
+                if (player !== undefined) {
+                    player.setAIActive(false, {});
+                }
+            } else {
+                if (controller !== undefined) {
+                    controller.respawn(respawnTarget);
+                }
+                this.multiPlayerDead[playerNum] = false;
+                this.restoreMirror(playerNum);
+                this.updateMirrorForSlot(playerNum);
+            }
+
+            const aliveSlots = this.multiPlayerSlots.filter(slot => this.getStocksRemainingForSlot(slot) > 0);
+            if (aliveSlots.length === 1) {
+                this._sendGameOver(aliveSlots[0]);
                 this.sceneManager.changeToScene(WinScene, { winner: aliveSlots[0], onlineMode: true });
             }
             return;
@@ -1270,13 +1363,11 @@ export default abstract class MBLevel extends Scene {
         if (this.multiPlayerMode) {
             const player3Present = this.multiPlayerSlots.includes(3);
             const player4Present = this.multiPlayerSlots.includes(4);
-            const player3Alive = player3Present && this.multiPlayerDead[3] !== true;
-            const player4Alive = player4Present && this.multiPlayerDead[4] !== true;
-            for (const icon of this.stockIcons3) {
-                icon.visible = player3Alive;
+            for (let i = 0; i < this.stockIcons3.length; i++) {
+                this.stockIcons3[i].visible = player3Present && i < this.stocksRemaining3;
             }
-            for (const icon of this.stockIcons4) {
-                icon.visible = player4Alive;
+            for (let i = 0; i < this.stockIcons4.length; i++) {
+                this.stockIcons4[i].visible = player4Present && i < this.stocksRemaining4;
             }
         }
     }
@@ -1625,6 +1716,9 @@ export default abstract class MBLevel extends Scene {
             playerNumber: slot,
             isLocalPlayer: P2PManager.mySlot === slot,
         });
+        if (!(player.ai as PlayerController).isLocalPlayer) {
+            player.setAIActive(false, {});
+        }
 
         if (slot === 1) this.player = player;
         else if (slot === 2) this.player2 = player;
@@ -1690,6 +1784,10 @@ export default abstract class MBLevel extends Scene {
     protected initializeMultiPlayerBattle(): void {
         const slotCount = Math.max(2, Math.min(4, P2PManager.playerCount || 2));
         this.multiPlayerSlots = Array.from({ length: slotCount }, (_, i) => (i + 1) as 1 | 2 | 3 | 4);
+        this.stocksRemaining = MBLevel.STOCK_COUNT;
+        this.stocksRemaining2 = MBLevel.STOCK_COUNT;
+        this.stocksRemaining3 = MBLevel.STOCK_COUNT;
+        this.stocksRemaining4 = MBLevel.STOCK_COUNT;
 
         for (const slot of this.multiPlayerSlots) {
             this.initializeWeaponSystemForSlot(slot);
@@ -1705,6 +1803,14 @@ export default abstract class MBLevel extends Scene {
         }
 
         this.updateStockDisplay();
+    }
+
+    protected getProjectileSyncSeed(projectile: Readonly<ProjectileData>): number {
+        return Math.round(projectile.sprite.position.x * 10)
+            + Math.round(projectile.sprite.position.y * 10) * 31
+            + Math.round(projectile.direction.x * 1000) * 131
+            + Math.round(projectile.direction.y * 1000) * 521
+            + projectile.bounceCount * 1009;
     }
 
     protected getPlayerSpriteKeyForSlot(slot: 1 | 2 | 3 | 4): string {
@@ -1768,17 +1874,20 @@ export default abstract class MBLevel extends Scene {
         } else if (type === 0xf7 && data.byteLength >= 3) {
             this._handlePowerupRemove(new DataView(data).getUint16(1, true));
         } else if (type === 0xf5) {
-            const winner = data.byteLength >= 2 ? new DataView(data).getUint8(1) as 1 | 2 : 1;
-            this.sceneManager.changeToScene(WinScene, { winner: winner === 2 ? 2 : 1, onlineMode: true });
+            const winner = data.byteLength >= 2 ? new DataView(data).getUint8(1) as 1 | 2 | 3 | 4 : 1;
+            this.sceneManager.changeToScene(WinScene, { winner, onlineMode: true });
         } else if (type === 0xf6 && data.byteLength >= 19) {
             const v = new DataView(data);
-            const playerNum = v.getUint8(1) as 1 | 2;
+            const playerNum = v.getUint8(1) as 1 | 2 | 3 | 4;
             const spellType = decodeSpellType(v.getUint8(2));
             if (spellType !== null) {
                 const pos = new Vec2(v.getFloat32(3, true), v.getFloat32(7, true));
                 const dir = new Vec2(v.getFloat32(11, true), v.getFloat32(15, true));
-                const remoteWeapon = playerNum === 1 ? this.playerWeaponSystem : this.player2WeaponSystem;
-                const remotePlayer = playerNum === 1 ? this.player : this.player2;
+                const remoteWeapon = this.getWeaponSystemForSlot(playerNum);
+                const remotePlayer = this.getPlayerForSlot(playerNum);
+                if (remoteWeapon === undefined || remotePlayer === undefined) {
+                    return;
+                }
                 const spawnDirection = dir.isZero()
                     ? new Vec2(remotePlayer?.invertX ? -1 : 1, 0)
                     : dir;
@@ -1796,6 +1905,36 @@ export default abstract class MBLevel extends Scene {
         } else if (evt.eventId === EventId.MIRROR_HIT) {
             this._applyMirrorHit(evt.playerNum);
         } else if (evt.eventId === EventId.PLAYER_RESPAWN) {
+            if (this.multiPlayerMode) {
+                if (this.isOnlineHost()) {
+                    return;
+                }
+
+                const stocksRemaining = this.decrementStocksForSlot(evt.playerNum);
+                const target = this.getPlayerForSlot(evt.playerNum);
+                this.updateStockDisplay();
+
+                if (stocksRemaining <= 0) {
+                    this.multiPlayerDead[evt.playerNum] = true;
+                    if (target !== undefined) {
+                        target.setAIActive(false, {});
+                    }
+                    return;
+                }
+
+                if (target !== undefined) {
+                    const pc = target.ai as PlayerController;
+                    pc.respawn(new Vec2(evt.respawnX ?? 0, evt.respawnY ?? 0));
+                    this.multiPlayerDead[evt.playerNum] = false;
+                    this.restoreMirror(evt.playerNum);
+                    this.updateMirrorForSlot(evt.playerNum);
+                }
+                return;
+            }
+
+            if (P2PManager.isConnected && P2PManager.mySlot === evt.playerNum) {
+                return;
+            }
             // Owning client already handled their own stock — we just sync our display
             if (evt.playerNum === 2) {
                 this.stocksRemaining2 = Math.max(0, this.stocksRemaining2 - 1);

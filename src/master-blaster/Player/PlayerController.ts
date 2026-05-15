@@ -69,7 +69,7 @@ export default class PlayerController extends StateMachineAI {
     protected tilemap: OrthogonalTilemap;
     protected weapon: PlayerWeapon;
     protected _isDead: boolean;
-    protected _playerNumber: 1 | 2 = 1;
+    protected _playerNumber: 1 | 2 | 3 | 4 = 1;
     protected _isLocalPlayer: boolean = true;
     protected _currentSpell: SpellType | null;
     protected _spellUsesRemaining: number;
@@ -89,7 +89,7 @@ export default class PlayerController extends StateMachineAI {
     public initializeAI(owner: MBAnimatedSprite, options: Record<string, any>){
         this.owner = owner;
 
-        this._playerNumber = options.playerNumber === 2 ? 2 : 1;
+        this._playerNumber = options.playerNumber ?? 1;
         this._isLocalPlayer = options.isLocalPlayer ?? (
             P2PManager.mySlot !== 0
                 ? P2PManager.mySlot === this._playerNumber
@@ -175,7 +175,7 @@ export default class PlayerController extends StateMachineAI {
         return false;
     }
 
-    public get playerNumber(): 1 | 2 { return this._playerNumber; }
+    public get playerNumber(): 1 | 2 | 3 | 4 { return this._playerNumber; }
     public get isLocalPlayer(): boolean { return this._isLocalPlayer; }
     public get currentSpell(): SpellType | null { return this._currentSpell; }
     public get spellUsesRemaining(): number { return this._spellUsesRemaining; }
