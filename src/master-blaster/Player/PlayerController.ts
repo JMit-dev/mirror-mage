@@ -54,7 +54,7 @@ export default class PlayerController extends StateMachineAI {
     public readonly MAX_SPEED: number = 280;
     public readonly MIN_SPEED: number = 160;
     public static readonly SPELL_USES_PER_PICKUP: number = 3;
-    public static readonly POST_RESPAWN_INVULNERABILITY_TIME: number = 0.25;
+    public static readonly POST_RESPAWN_INVULNERABILITY_TIME: number = 1;
 
     /** Health and max health for the player */
     protected _health: number;

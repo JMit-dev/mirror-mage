@@ -499,7 +499,14 @@ export default abstract class MBLevel extends Scene {
                 continue;
             }
             const player = this.getPlayerForSlot(slot);
-            if (player !== undefined && player.boundary.top > killY) {
+            const controller = player?.ai as PlayerController | undefined;
+            if (
+                player !== undefined &&
+                controller !== undefined &&
+                !controller.isDead &&
+                !controller.isInvulnerable &&
+                player.boundary.top > killY
+            ) {
                 this.playDeathSound();
                 this.handlePlayerDeath(slot);
             }
@@ -614,12 +621,26 @@ export default abstract class MBLevel extends Scene {
     protected updateFallDeaths(): void {
         const killY = this.getFallDeathY();
 
-        if (this.player !== undefined && this.player.boundary.top > killY) {
+        const player1Controller = this.player?.ai as PlayerController | undefined;
+        if (
+            this.player !== undefined &&
+            player1Controller !== undefined &&
+            !player1Controller.isDead &&
+            !player1Controller.isInvulnerable &&
+            this.player.boundary.top > killY
+        ) {
             this.playDeathSound();
             this.handlePlayerDeath(1);
         }
 
-        if (this.player2 !== undefined && this.player2.boundary.top > killY) {
+        const player2Controller = this.player2?.ai as PlayerController | undefined;
+        if (
+            this.player2 !== undefined &&
+            player2Controller !== undefined &&
+            !player2Controller.isDead &&
+            !player2Controller.isInvulnerable &&
+            this.player2.boundary.top > killY
+        ) {
             this.playDeathSound();
             this.handlePlayerDeath(2);
         }

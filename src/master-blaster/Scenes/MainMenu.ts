@@ -10,10 +10,12 @@ import Scene from "../../Wolfie2D/Scene/Scene";
 import Color from "../../Wolfie2D/Utils/Color";
 import Level1 from "./MBLevel1";
 import Level2 from "./MBLevel2";
+import Level3 from "./MBLevel3";
 import HowToScene from "./HowToScene";
 import { RuntimeModeValue, setRuntimeMode } from "../config/RuntimeMode";
 import P2PManager from "../Network/P2PManager";
 import BetaLobbyScene from "./BetaLobbyScene";
+import { LevelId } from "../Network/P2PManager";
 
 export const MenuLayers = {
     MAIN: "MAIN"
@@ -34,6 +36,7 @@ export default class MainMenu extends Scene {
     private howToButton!: Button;
     private level1Button!: Button;
     private level2Button!: Button;
+    private level3Button!: Button;
     private backButton!: Button;
     private pendingMode: typeof RuntimeModeValue[keyof typeof RuntimeModeValue] = RuntimeModeValue.DEFAULT;
 
@@ -78,7 +81,7 @@ export default class MainMenu extends Scene {
                 this.showWaitingForHost();
                 P2PManager.onLevelSelected((level) => {
                     setRuntimeMode(RuntimeModeValue.DEFAULT);
-                    this.sceneManager.changeToScene(level === "level1" ? Level1 : Level2 as any);
+                    this.sceneManager.changeToScene(this.getSceneForLevel(level));
                 });
             } else {
                 this.pendingMode = RuntimeModeValue.DEFAULT;
@@ -120,11 +123,14 @@ export default class MainMenu extends Scene {
     }
 
     protected createLevelControls(size: Vec2): void {
-        this.level1Button = this.createButton(new Vec2(size.x - 130, size.y + 130), "Grasslands");
+        this.level1Button = this.createButton(new Vec2(size.x - 260, size.y + 130), "Grasslands");
         this.level1Button.onClick = () => this.handleLevelSelection("level1");
 
-        this.level2Button = this.createButton(new Vec2(size.x + 130, size.y + 130), "Underground");
+        this.level2Button = this.createButton(new Vec2(size.x, size.y + 130), "Underground");
         this.level2Button.onClick = () => this.handleLevelSelection("level2");
+
+        this.level3Button = this.createButton(new Vec2(size.x + 260, size.y + 130), "Lava Castle");
+        this.level3Button.onClick = () => this.handleLevelSelection("level3");
 
         this.backButton = this.createButton(new Vec2(size.x, size.y + 220), "Back");
         this.backButton.onClick = () => this.showModeMenu();
@@ -140,6 +146,7 @@ export default class MainMenu extends Scene {
         this.howToButton.visible = true;
         this.level1Button.visible = false;
         this.level2Button.visible = false;
+        this.level3Button.visible = false;
         this.backButton.visible = false;
 
         this.playTitleMusic();
@@ -155,6 +162,7 @@ export default class MainMenu extends Scene {
         this.howToButton.visible = false;
         this.level1Button.visible = true;
         this.level2Button.visible = true;
+        this.level3Button.visible = true;
         this.backButton.visible = true;
 
         this.stopTitleMusic();
@@ -169,18 +177,19 @@ export default class MainMenu extends Scene {
         this.howToButton.visible = false;
         this.level1Button.visible = false;
         this.level2Button.visible = false;
+        this.level3Button.visible = false;
         this.backButton.visible = false;
 
         this.stopTitleMusic();
     }
 
-    protected handleLevelSelection(level: "level1" | "level2"): void {
+    protected handleLevelSelection(level: "level1" | "level2" | "level3"): void {
         const localMode = this.pendingMode === RuntimeModeValue.LOCAL_COOP_TESTING;
         setRuntimeMode(localMode ? RuntimeModeValue.LOCAL_COOP_TESTING : RuntimeModeValue.DEFAULT);
         this.stopTitleMusic();
 
         if (localMode) {
-            this.sceneManager.changeToScene(level === "level1" ? Level1 : Level2 as any);
+            this.sceneManager.changeToScene(this.getSceneForLevel(level));
             return;
         }
 
@@ -191,7 +200,18 @@ export default class MainMenu extends Scene {
 
         if (P2PManager.mySlot === 1) {
             P2PManager.selectLevel(level);
-            this.sceneManager.changeToScene(level === "level1" ? Level1 : Level2 as any);
+            this.sceneManager.changeToScene(this.getSceneForLevel(level));
+        }
+    }
+
+    private getSceneForLevel(level: LevelId): new (...args: any[]) => Scene {
+        switch (level) {
+            case "level1":
+                return Level1;
+            case "level2":
+                return Level2;
+            case "level3":
+                return Level3;
         }
     }
 
